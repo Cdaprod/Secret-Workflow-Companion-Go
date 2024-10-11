@@ -46,7 +46,7 @@ func TestRootHelp(t *testing.T) {
 
 // Test the add-secret command with missing required flags
 func TestAddSecretMissingFlags(t *testing.T) {
-    stdout, stderr, err := executeGhmCommand("add-secret")
+    _, stderr, err := executeGhmCommand("add-secret") // Ignore stdout
 
     require.Error(t, err, "Executing add-secret without flags should return an error")
     assert.Contains(t, stderr, "Repository must be specified.")
@@ -122,7 +122,7 @@ func TestStoreConfig(t *testing.T) {
 
 // Test the add-workflow command with missing required flags
 func TestAddWorkflowMissingFlags(t *testing.T) {
-    stdout, stderr, err := executeGhmCommand("add-workflow")
+    _, stderr, err := executeGhmCommand("add-workflow") // Ignore stdout
 
     require.Error(t, err, "Executing add-workflow without flags should return an error")
     assert.Contains(t, stderr, "Repository must be specified.")

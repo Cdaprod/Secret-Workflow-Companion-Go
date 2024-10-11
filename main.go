@@ -40,7 +40,7 @@ func printASCIIHeader() {
     `
     color.New(color.FgCyan).Println(header)
     color.New(color.FgMagenta).Println("    GitHub Management CLI (ghm)")
-    color.New(color.FgCyan).Println("=======================================\n")
+    color.New(color.FgCyan).Println("=======================================")
 }
 
 // Initialize Viper Configuration
@@ -230,7 +230,14 @@ func initStoreConfigCmd() *cobra.Command {
     return storeConfigCmd
 }
 
-// Strategy Interfaces and Structs
+
+// StartProgress initializes and returns a single-line progress bar
+func StartProgress(total int) *pb.ProgressBar {
+    bar := pb.New(total).
+        SetTemplateString("{{bar . }} {{percent . }}") // Correct template
+    bar.Start()
+    return bar
+}
 
 // Strategy interface for executing different strategies
 type Strategy interface {
@@ -429,14 +436,6 @@ func saveSecretLocally(secretName, secretValue string) {
     }
 
     yellow("Secret '%s' saved locally.", secretName)
-}
-
-// StartProgress initializes and returns a single-line progress bar
-func StartProgress(total int) *pb.ProgressBar {
-    bar := pb.New(total) // Correctly initialize the progress bar
-    bar.SetTemplateString(`{{ red "Progress:" }} {{bar . }} {{percent . }}`) // Customize the template
-    bar.Start()
-    return bar
 }
 
 func main() {
