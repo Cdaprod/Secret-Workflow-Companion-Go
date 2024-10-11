@@ -139,8 +139,8 @@ func (a *AddWorkflowStrategy) Execute() error {
 
 	// Initialize authentication for git operations
 	auth := &http.BasicAuth{
-		Username: "ghm",      // Can be anything except an empty string
-		Password: a.Token,    // GitHub Personal Access Token
+		Username: "ghm",     // Can be anything except an empty string
+		Password: a.Token,   // GitHub Personal Access Token
 	}
 
 	// Clone the repository into a temporary directory

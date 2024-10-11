@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 
@@ -39,10 +38,11 @@ func (e *EncryptorImpl) Encrypt(secretValue string, publicKey *github.PublicKey)
 	parsedPubKey, err := x509.ParsePKIXPublicKey(keyBytes)
 	if err != nil {
 		// Try parsing as PKCS1
-		parsedPubKey, err = x509.ParsePKCS1PublicKey(keyBytes)
-		if err != nil {
+		rsaPubKey, parseErr := x509.ParsePKCS1PublicKey(keyBytes)
+		if parseErr != nil {
 			return "", fmt.Errorf("failed to parse RSA public key: %w", err)
 		}
+		parsedPubKey = rsaPubKey
 	}
 
 	rsaPubKey, ok := parsedPubKey.(*rsa.PublicKey)

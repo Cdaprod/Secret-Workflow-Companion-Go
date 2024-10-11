@@ -9,5 +9,5 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.11.0
 	golang.org/x/oauth2 v0.10.0
-	golang.org/x/crypto v0.28.0 // Updated to the latest version
+	golang.org/x/crypto v0.28.0
 )
