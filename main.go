@@ -28,15 +28,15 @@ var (
     bold   = color.New(color.Bold).SprintFunc()
 )
 
-// ASCII Header Function
+// Function to print a colorful ASCII Header
 func printASCIIHeader() {
     header := `
-  ____ _     _  __  __ 
- / ___| |__ (_)|  \/  |
-| |  _| '_ \| || |\/| |
-| |_| | | | | || |  | |
- \____|_| |_|_||_|  |_| 
-                          
+      ____ _     _  __  __ 
+     / ___| |__ (_)|  \/  |
+    | |  _| '_ \| || |\/| |
+    | |_| | | | | || |  | |
+     \____|_| |_|_||_|  |_| 
+                              
     `
     color.New(color.FgCyan).Println(header)
     color.New(color.FgMagenta).Println("    GitHub Management CLI (ghm)")
@@ -72,6 +72,7 @@ func initRootCmd() *cobra.Command {
         Use:   "ghm",
         Short: "GitHub Management CLI",
         PersistentPreRun: func(cmd *cobra.Command, args []string) {
+            // Ensure GitHub token is available
             token = viper.GetString("github_token")
             if token == "" {
                 blue("Enter your GitHub token:")
@@ -233,7 +234,7 @@ func initStoreConfigCmd() *cobra.Command {
 func StartProgress(total int) *pb.ProgressBar {
     bar := pb.New(total).
         SetTemplateString("{{bar . }} {{percent . }}").
-        Set(pb.ProgressBarStyle, pb.StyleModern)
+        Set(pb.StyleOneline) // Correct style
     bar.Start()
     return bar
 }
@@ -443,7 +444,7 @@ func saveSecretLocally(secretName, secretValue string) {
 func StartProgress(total int) *pb.ProgressBar {
     bar := pb.New(total).
         SetTemplateString("{{bar . }} {{percent . }}").
-        Set(pb.ProgressBarStyle, pb.StyleModern)
+        Set(pb.StyleOneline) // Correct style
     bar.Start()
     return bar
 }
