@@ -61,72 +61,65 @@ type StoreConfigStrategy struct {
 	ConfigValue string
 }
 
-// Execute adds a secret to a GitHub repository
 func (a *AddSecretStrategy) Execute() error {
-	ctx := context.Background()
+    ctx := context.Background()
 
-	// Initialize GitHub client with OAuth2 token
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: a.Token},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
+    // Initialize GitHub client with OAuth2 token
+    ts := oauth2.StaticTokenSource(
+        &oauth2.Token{AccessToken: a.Token},
+    )
+    tc := oauth2.NewClient(ctx, ts)
+    client := github.NewClient(tc)
 
-	// Split repo into owner and repo
-	parts := strings.Split(a.Repo, "/")
-	if len(parts) != 2 {
-		fmt.Fprintln(os.Stderr, red("Invalid repository format. Use 'owner/repo'."))
-		return fmt.Errorf("invalid repository format")
-	}
-	owner, repo := parts[0], parts[1]
+    // Split repo into owner and repo
+    parts := strings.Split(a.Repo, "/")
+    if len(parts) != 2 {
+        fmt.Fprintln(os.Stderr, red("Invalid repository format. Use 'owner/repo'."))
+        return fmt.Errorf("invalid repository format")
+    }
+    owner, repo := parts[0], parts[1]
 
-	// Fetch repository public key
-	publicKey, _, err := client.Actions.GetRepoPublicKey(ctx, owner, repo)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, red("Error fetching repository public key:"), err)
-		return err
-	}
+    // Fetch repository public key
+    publicKey, _, err := client.Actions.GetRepoPublicKey(ctx, owner, repo)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, red("Error fetching repository public key:"), err)
+        return err
+    }
 
-	// Encrypt the secret value
-	encryptedValue, err := a.Encryptor.Encrypt(a.SecretValue, publicKey)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, red("Error encrypting secret:"), err)
-		return err
-	}
+    // Ensure publicKey.KeyID is not nil
+    if publicKey.KeyID == nil {
+        fmt.Fprintln(os.Stderr, red("Public Key ID is nil."))
+        return fmt.Errorf("public key ID is nil")
+    }
 
-	// Check if KeyID is not nil
-	if publicKey.KeyID == nil {
-		fmt.Fprintln(os.Stderr, red("Public Key ID is nil."))
-		return fmt.Errorf("public key ID is nil")
-	}
+    // Encrypt the secret value
+    encryptedValue, err := a.Encryptor.Encrypt(a.SecretValue, publicKey)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, red("Error encrypting secret:"), err)
+        return err
+    }
 
-	// Create or update the secret
-	// Change this line (use encryptedValue directly)
-	encryptedSecret := &github.EncryptedSecret{
-	    KeyID: publicKey.KeyID,
-	    // Secret: encryptedValue,  // Use encryptedValue directly
-	}
+    // Create the encrypted secret struct
+    encryptedSecret := &github.EncryptedSecret{
+        Name:           a.SecretName,
+        KeyID:          *publicKey.KeyID,  // Dereference the pointer
+        EncryptedValue: encryptedValue,
+    }
 
-	// Change the method call to match the expected parameters
+    // Use the CreateOrUpdateRepoSecret method provided by the go-github library
+    _, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, encryptedSecret)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, red("Error setting repository secret:"), err)
+        return err
+    }
 
+    fmt.Println(green("Secret '%s' added to repository '%s' successfully.", a.SecretName, a.Repo))
+    fmt.Println(yellow("Secret '%s' saved locally.", a.SecretName))
 
-	// Remove or comment out this line if `ctx` is not used elsewhere
-	// var ctx context.Context
+    // Save secret locally for persistence
+    saveSecretLocally(a.SecretName, a.SecretValue)
 
-	// Correct number of return variables based on go-github v50.1.0
-	_, err := client.Actions.CreateOrUpdateRepoSecret(ctx, a.Repo, a.SecretName, encryptedSecret) // Remove the redundant string argument
-	if err != nil {
-		fmt.Fprintln(os.Stderr, red("Error setting repository secret:"), err)
-		return err
-	}
-
-	fmt.Println(green("Secret '%s' added to repository '%s' successfully.", a.SecretName, a.Repo))
-	fmt.Println(yellow("Secret '%s' saved locally.", a.SecretName))
-
-	// Save secret locally for persistence
-	saveSecretLocally(a.SecretName, a.SecretValue)
-
-	return nil
+    return nil
 }
 
 // Execute adds a GitHub Actions workflow to a repository
