@@ -101,13 +101,20 @@ func (a *AddSecretStrategy) Execute() error {
 	}
 
 	// Create or update the secret
-	secret := &github.EncryptedSecret{
-		EncryptedValue: &encryptedValue,
-		KeyID:          *publicKey.KeyID, // Dereference the pointer
+	// Change this line (use encryptedValue directly)
+	encryptedSecret := &github.EncryptedSecret{
+	    KeyID: publicKey.KeyID,
+	    Secret: encryptedValue,  // Use encryptedValue directly
 	}
 
+	// Change the method call to match the expected parameters
+
+
+	// Remove or comment out this line if `ctx` is not used elsewhere
+	// var ctx context.Context
+
 	// Correct number of return variables based on go-github v50.1.0
-	_, _, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, a.SecretName, secret)
+	_, err := client.Actions.CreateOrUpdateRepoSecret(ctx, a.Repo, a.SecretName, encryptedSecret) // Remove the redundant string argument
 	if err != nil {
 		fmt.Fprintln(os.Stderr, red("Error setting repository secret:"), err)
 		return err
