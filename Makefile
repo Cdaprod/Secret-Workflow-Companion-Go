@@ -25,13 +25,14 @@ test:
 	$(GO) test ./...
 
 install: build
-	sudo mkdir -p $(INSTALL_DIR)  # Ensure /usr/local/bin exists
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)  # Corrected: copy the binary to /usr/local/bin
-	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)  # Copy the autocompletion script to /usr/local/bin
+	sudo mkdir -p $(INSTALL_DIR)
+	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/  # Copy the binary to /usr/local/bin
+	mkdir -p $(HOME)/bin/scripts  # Create ~/bin/scripts if it doesn't exist
+	cp $(AUTOCOMPLETE_SCRIPT) $(HOME)/bin/scripts/  # Copy the autocompletion script to ~/bin/scripts
 	@echo "# ghm autocomplete" >> $(BASH_PROFILE)
-	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE)
+	@echo "source $(HOME)/bin/scripts/autocompletion.sh" >> $(BASH_PROFILE)
 	@echo "# ghm autocomplete" >> $(ZSH_PROFILE)
-	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(ZSH_PROFILE)
+	@echo "source $(HOME)/bin/scripts/autocompletion.sh" >> $(ZSH_PROFILE)
 	@echo "Installation complete. Please run 'source $(BASH_PROFILE)' (for Bash) or 'source $(ZSH_PROFILE)' (for Zsh) to enable autocomplete."
 
 uninstall:
