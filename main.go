@@ -94,13 +94,20 @@ func (a *AddSecretStrategy) Execute() error {
 		return err
 	}
 
+	// Check if KeyID is not nil
+	if publicKey.KeyID == nil {
+		fmt.Fprintln(os.Stderr, red("Public Key ID is nil."))
+		return fmt.Errorf("public key ID is nil")
+	}
+
 	// Create or update the secret
 	secret := &github.EncryptedSecret{
 		EncryptedValue: &encryptedValue,
-		KeyID:          publicKey.KeyID,
+		KeyID:          *publicKey.KeyID, // Dereference the pointer
 	}
 
-	_, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, a.SecretName, secret)
+	// Correct number of arguments: ctx, owner, repo, secretName, secret
+	_, _, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, a.SecretName, secret)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, red("Error setting repository secret:"), err)
 		return err
@@ -132,8 +139,8 @@ func (a *AddWorkflowStrategy) Execute() error {
 
 	// Initialize authentication for git operations
 	auth := &http.BasicAuth{
-		Username: "ghm",     // Can be anything except an empty string
-		Password: a.Token,   // GitHub Personal Access Token
+		Username: "ghm",      // Can be anything except an empty string
+		Password: a.Token,    // GitHub Personal Access Token
 	}
 
 	// Clone the repository into a temporary directory
@@ -406,13 +413,13 @@ func saveSecretLocally(secretName, secretValue string) {
 // printASCIIHeader prints a colorful ASCII header
 func printASCIIHeader() {
 	header := `
-      ____ _     _  __  __ 
-     / ___| |__ (_)|  \/  |
-    | |  _| '_ \| || |\/| |
-    | |_| | | | | || |  | |
-     \____|_| |_|_||_|  |_| 
-                              
-    `
+          ____ _     _  __  __ 
+         / ___| |__ (_)|  \/  |
+        | |  _| '_ \| || |\/| |
+        | |_| | | | | || |  | |
+         \____|_| |_|_||_|  |_| 
+                                  
+        `
 	color.New(color.FgCyan).Println(header)
 	color.New(color.FgMagenta).Println("    GitHub Management CLI (ghm)")
 	color.New(color.FgCyan).Println("=======================================")
