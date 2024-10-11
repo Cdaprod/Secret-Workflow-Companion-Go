@@ -31,11 +31,11 @@ var (
 // Function to print a colorful ASCII Header
 func printASCIIHeader() {
     header := `
-      ____ _     _  __  __ 
-     / ___| |__ (_)|  \/  |
-    | |  _| '_ \| || |\/| |
-    | |_| | | | | || |  | |
-     \____|_| |_|_||_|  |_| 
+      ____ _   _ __  __ 
+     / ___| |_| |  \/  |
+    | |  _|  _  | |\/| |
+    | |_| | | | | |  | |
+     \____|_| |_|_|  |_| 
                               
     `
     color.New(color.FgCyan).Println(header)
@@ -431,7 +431,6 @@ func saveSecretLocally(secretName, secretValue string) {
     yellow("Secret '%s' saved locally.", secretName)
 }
 
-// StartProgress initializes and returns a single-line progress bar
 // StartProgress initializes and returns a single-line progress bar
 func StartProgress(total int) *pb.ProgressBar {
     bar := pb.New(total) // Correctly initialize the progress bar
