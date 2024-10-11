@@ -3,7 +3,7 @@
 BINARY_NAME=ghm
 GO=go
 INSTALL_DIR=/usr/local/bin  # System-wide installation in /usr/local/bin
-AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh  # Now located at the root of the repo
+AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh  # Located at the root of the repo
 BASH_PROFILE=$(HOME)/.bash_profile
 ZSH_PROFILE=$(HOME)/.zshrc
 
@@ -25,9 +25,9 @@ test:
 	$(GO) test ./...
 
 install: build
-	sudo mkdir -p $(INSTALL_DIR)  # This line must be indented with a tab
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/  # Also indented with a tab
-	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/  # Tab here too
+	sudo mkdir -p $(INSTALL_DIR)  # Ensure /usr/local/bin exists
+	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/  # Corrected: copy the binary to /usr/local/bin
+	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/  # Copy the autocompletion script to /usr/local/bin
 	@echo "# ghm autocomplete" >> $(BASH_PROFILE)
 	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE)
 	@echo "# ghm autocomplete" >> $(ZSH_PROFILE)
