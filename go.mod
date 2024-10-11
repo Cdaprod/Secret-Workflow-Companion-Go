@@ -8,6 +8,6 @@ require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.11.0
-	golang.org/x/crypto v0.0.0-20230110194929-0f2d90e3a69f
 	golang.org/x/oauth2 v0.10.0
+	golang.org/x/crypto v0.28.0
 )
