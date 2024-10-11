@@ -4,8 +4,9 @@ go 1.18
 
 require (
     github.com/fatih/color v1.13.0
-    github.com/cheggaaa/pb/v3 v3.0.0
+    github.com/cheggaaa/pb/v3 v3.0.7
     github.com/spf13/cobra v1.6.1
     github.com/spf13/viper v1.11.0
-    golang.org/x/term v0.5.0
+    golang.org/x/term v0.7.0
+    github.com/stretchr/testify v1.8.0
 )

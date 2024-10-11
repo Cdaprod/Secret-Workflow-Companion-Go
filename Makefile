@@ -2,17 +2,20 @@
 
 BINARY_NAME=ghm
 GO=go
-INSTALL_DIR=/usr/local/bin  # Installation directory
-AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh  # Autocompletion script
+INSTALL_DIR=/usr/local/bin
+AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh
 BASH_PROFILE=$(HOME)/.bash_profile
 ZSH_PROFILE=$(HOME)/.zshrc
 
-.PHONY: all build clean run test install uninstall
+.PHONY: all build test clean run install uninstall
 
 all: build
 
 build:
 	$(GO) build -o $(BINARY_NAME) main.go
+	
+test:
+	$(GO) test -v ./...
 
 clean:
 	$(GO) clean
@@ -20,9 +23,6 @@ clean:
 
 run:
 	$(GO) run main.go
-
-test:
-	$(GO) test ./...
 
 install: build
 	sudo mkdir -p $(INSTALL_DIR)
