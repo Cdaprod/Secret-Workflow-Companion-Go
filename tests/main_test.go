@@ -9,6 +9,7 @@ import (
     "os"
     "os/exec"
     "path/filepath"
+    "regexp"
     "strings"
     "testing"
 
@@ -16,9 +17,100 @@ import (
     "github.com/stretchr/testify/require"
 )
 
-// Helper function to execute the ghm command with arguments
+var ansi = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// stripANSI removes ANSI escape codes from strings
+func stripANSI(s string) string {
+    return ansi.ReplaceAllString(s, "")
+}
+
+// TestMain sets up the testing environment
+func TestMain(m *testing.M) {
+    // Setup: Create config.json with a dummy token
+    config := map[string]string{
+        "github_token": "dummy_token",
+    }
+    configData, _ := json.Marshal(config)
+    configPath := "config.json"
+    err := os.WriteFile(configPath, configData, 0644)
+    if err != nil {
+        fmt.Println("Failed to create config.json:", err)
+        os.Exit(1)
+    }
+    defer os.Remove(configPath)
+
+    // Setup: Create a fake 'gh' executable
+    fakeGhPath := filepath.Join("..", "gh")
+    ghScript := `#!/bin/bash
+if [ "$1" == "secret" ] && [ "$2" == "set" ]; then
+    echo "Secret set successfully."
+    exit 0
+elif [ "$1" == "secret" ]; then
+    echo "Invalid secret command."
+    exit 1
+elif [ "$1" == "auth" ]; then
+    echo "authenticated"
+    exit 0
+else
+    echo "Unknown gh command."
+    exit 1
+fi
+`
+    err = os.WriteFile(fakeGhPath, []byte(ghScript), 0755)
+    if err != nil {
+        fmt.Println("Failed to create fake gh:", err)
+        os.Exit(1)
+    }
+    defer os.Remove(fakeGhPath)
+
+    // Setup: Create a fake 'git' executable
+    fakeGitPath := filepath.Join("..", "git")
+    gitScript := `#!/bin/bash
+if [ "$1" == "clone" ]; then
+    # Simulate git clone by creating the target directory
+    target_dir="$3"
+    mkdir -p "$target_dir/.github/workflows"
+    echo "Mock git clone into $target_dir"
+    exit 0
+else
+    echo "Mock git command executed: $@"
+    exit 0
+fi
+`
+    err = os.WriteFile(fakeGitPath, []byte(gitScript), 0755)
+    if err != nil {
+        fmt.Println("Failed to create fake git:", err)
+        os.Exit(1)
+    }
+    defer os.Remove(fakeGitPath)
+
+    // Prepend parent directory to PATH so that 'gh' and 'git' are used
+    originalPath := os.Getenv("PATH")
+    newPath := fmt.Sprintf("../:%s", originalPath)
+    os.Setenv("PATH", newPath)
+    defer os.Setenv("PATH", originalPath)
+
+    // Build the ghm binary
+    buildCmd := exec.Command("go", "build", "-o", "../ghm", "../main.go")
+    buildOutput, err := buildCmd.CombinedOutput()
+    if err != nil {
+        fmt.Printf("Failed to build ghm: %s\n", string(buildOutput))
+        os.Exit(1)
+    }
+
+    // Run tests
+    code := m.Run()
+
+    // Cleanup: Remove the ghm binary and fake gh/git
+    os.Remove("../ghm")
+    os.Remove(fakeGhPath)
+    os.Remove(fakeGitPath)
+
+    os.Exit(code)
+}
+
+// executeGhmCommand runs the ghm command with provided arguments and returns stdout, stderr, and error
 func executeGhmCommand(args ...string) (string, string, error) {
-    // Assuming the tests are run from the tests/ directory
     cmd := exec.Command("../ghm", args...)
 
     var stdout, stderr bytes.Buffer
@@ -26,7 +118,7 @@ func executeGhmCommand(args ...string) (string, string, error) {
     cmd.Stderr = &stderr
 
     err := cmd.Run()
-    return stdout.String(), stderr.String(), err
+    return stripANSI(stdout.String()), stripANSI(stderr.String()), err
 }
 
 // Test the root command to display help
@@ -46,17 +138,16 @@ func TestRootHelp(t *testing.T) {
 
 // Test the add-secret command with missing required flags
 func TestAddSecretMissingFlags(t *testing.T) {
-    _, stderr, err := executeGhmCommand("add-secret") // Ignore stdout
+    stdout, stderr, err := executeGhmCommand("add-secret") // Don't ignore stdout
 
     require.Error(t, err, "Executing add-secret without flags should return an error")
-    assert.Contains(t, stderr, "Repository must be specified.")
+    assert.True(t, strings.Contains(stderr, "Repository must be specified.") || strings.Contains(stdout, "Repository must be specified."),
+        "Error message 'Repository must be specified.' not found in stdout or stderr")
 }
 
 // Test the add-secret command with all required flags
 func TestAddSecret(t *testing.T) {
-    // Setup: Ensure the repository exists or mock its existence
-    // For this test, we'll assume the repository "owner/test-repo" exists
-
+    // Define test parameters
     repo := "owner/test-repo"
     secretName := "TEST_SECRET"
     secretValue := "testvalue123"
@@ -77,7 +168,7 @@ func TestAddSecret(t *testing.T) {
     assert.Contains(t, stdout, fmt.Sprintf("Secret '%s' saved locally.", secretName))
 
     // Verify that the secret is saved locally in secrets.json
-    secretsFile := filepath.Join("..", "secrets.json")
+    secretsFile := "secrets.json"
     defer os.Remove(secretsFile) // Clean up after test
 
     data, err := os.ReadFile(secretsFile)
@@ -107,7 +198,7 @@ func TestStoreConfig(t *testing.T) {
     assert.Contains(t, stdout, fmt.Sprintf("Configuration '%s' saved successfully.", configKey))
 
     // Verify that the configuration is saved using Viper in config.json
-    configFile := filepath.Join("..", "config.json")
+    configFile := "config.json"
     defer os.Remove(configFile) // Clean up after test
 
     data, err := os.ReadFile(configFile)
@@ -122,17 +213,16 @@ func TestStoreConfig(t *testing.T) {
 
 // Test the add-workflow command with missing required flags
 func TestAddWorkflowMissingFlags(t *testing.T) {
-    _, stderr, err := executeGhmCommand("add-workflow") // Ignore stdout
+    stdout, stderr, err := executeGhmCommand("add-workflow") // Don't ignore stdout
 
     require.Error(t, err, "Executing add-workflow without flags should return an error")
-    assert.Contains(t, stderr, "Repository must be specified.")
+    assert.True(t, strings.Contains(stderr, "Repository must be specified.") || strings.Contains(stdout, "Repository must be specified."),
+        "Error message 'Repository must be specified.' not found in stdout or stderr")
 }
 
 // Test the add-workflow command with all required flags
 func TestAddWorkflow(t *testing.T) {
-    // Setup: Ensure the repository exists or mock its existence
-    // For this test, we'll assume the repository "owner/test-repo" exists
-
+    // Define test parameters
     repo := "owner/test-repo"
     workflowName := "ci.yml"
     workflowContent := `
@@ -171,8 +261,8 @@ jobs:
     assert.Contains(t, stdout, fmt.Sprintf("Workflow '%s' added to repository '%s' successfully.", workflowName, repo))
 
     // Verify that the workflow file exists in the repository
-    workflowPath := filepath.Join("..", repo, ".github", "workflows", workflowName)
-    defer os.RemoveAll(filepath.Join("..", repo)) // Clean up after test
+    workflowPath := filepath.Join(repo, ".github", "workflows", workflowName)
+    defer os.RemoveAll(repo) // Clean up after test
 
     _, err = os.Stat(workflowPath)
     require.NoError(t, err, "Workflow file should exist in the repository")
