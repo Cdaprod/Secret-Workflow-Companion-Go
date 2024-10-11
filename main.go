@@ -106,7 +106,7 @@ func (a *AddSecretStrategy) Execute() error {
 		KeyID:          *publicKey.KeyID, // Dereference the pointer
 	}
 
-	// Correct number of return variables
+	// Correct number of return variables based on go-github v50.1.0
 	_, _, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, a.SecretName, secret)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, red("Error setting repository secret:"), err)
@@ -139,8 +139,8 @@ func (a *AddWorkflowStrategy) Execute() error {
 
 	// Initialize authentication for git operations
 	auth := &http.BasicAuth{
-		Username: "ghm",    // Can be anything except an empty string
-		Password: a.Token,  // GitHub Personal Access Token
+		Username: "ghm",     // Can be anything except an empty string
+		Password: a.Token,   // GitHub Personal Access Token
 	}
 
 	// Clone the repository into a temporary directory
