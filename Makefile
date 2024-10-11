@@ -2,10 +2,11 @@
 
 BINARY_NAME=ghm
 GO=go
-INSTALL_DIR=/usr/local/bin
-AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh
-BASH_PROFILE=$(HOME)/.bash_profile
-ZSH_PROFILE=$(HOME)/.zshrc
+INSTALL_DIR ?= /usr/local/bin
+BINARY_NAME = ghm
+AUTOCOMPLETE_SCRIPT = ghm_autocomplete.sh
+BASH_PROFILE = ~/.bashrc
+ZSH_PROFILE = ~/.zshrc
 
 .PHONY: all build test clean run install uninstall
 
@@ -21,18 +22,22 @@ test:
 clean:
 	$(GO) clean
 	rm -f $(BINARY_NAME)
+    rm -f ghm
+    rm -f secrets.json
+    rm -f config.json
 
 run:
 	$(GO) run main.go
 
 install: build
-	sudo mkdir -p $(INSTALL_DIR)
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
-	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)
-	@echo "# ghm autocomplete" >> $(BASH_PROFILE)
-	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE)
-	@echo "# ghm autocomplete" >> $(ZSH_PROFILE)
-	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(ZSH_PROFILE)
+	sudo install -m 0755 $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	sudo install -m 0644 $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)
+	@{ \
+		echo "# ghm autocomplete" >> $(BASH_PROFILE); \
+		echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE); \
+		echo "# ghm autocomplete" >> $(ZSH_PROFILE); \
+		echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(ZSH_PROFILE); \
+	}
 	@echo "Installation complete. Please run 'source $(BASH_PROFILE)' or 'source $(ZSH_PROFILE)' to enable autocomplete."
 
 uninstall:
