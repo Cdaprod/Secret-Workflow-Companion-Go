@@ -1,6 +1,6 @@
 module github.com/Cdaprod/secret-workflow-companion-go
 
-go 1.19
+go 1.18
 
 require (
     github.com/fatih/color v1.12.0
