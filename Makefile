@@ -2,8 +2,8 @@
 
 BINARY_NAME=ghm
 GO=go
-INSTALL_DIR=/usr/local/bin  # System-wide installation in /usr/local/bin
-AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh  # Located at the root of the repo
+INSTALL_DIR=/usr/local/bin  # Installation directory
+AUTOCOMPLETE_SCRIPT=ghm-autocompletion.sh  # Autocompletion script
 BASH_PROFILE=$(HOME)/.bash_profile
 ZSH_PROFILE=$(HOME)/.zshrc
 
@@ -25,20 +25,20 @@ test:
 	$(GO) test ./...
 
 install: build
-	sudo mkdir -p $(INSTALL_DIR)  # Ensure /usr/local/bin exists
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)  # Copy the binary to /usr/local/bin/ghm
-	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)  # Copy the autocompletion script to /usr/local/bin/ghm-autocompletion.sh
+	sudo mkdir -p $(INSTALL_DIR)
+	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)
 	@echo "# ghm autocomplete" >> $(BASH_PROFILE)
 	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE)
 	@echo "# ghm autocomplete" >> $(ZSH_PROFILE)
 	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(ZSH_PROFILE)
-	@echo "Installation complete. Please run 'source $(BASH_PROFILE)' (for Bash) or 'source $(ZSH_PROFILE)' (for Zsh) to enable autocomplete."
+	@echo "Installation complete. Please run 'source $(BASH_PROFILE)' or 'source $(ZSH_PROFILE)' to enable autocomplete."
 
 uninstall:
 	sudo rm -f $(INSTALL_DIR)/$(BINARY_NAME)
 	sudo rm -f $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)
 	sed -i '/# ghm autocomplete/d' $(BASH_PROFILE)
-	sed -i '/source.*ghm-autocompletion\.sh/d' $(BASH_PROFILE)
+	sed -i "\|source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)|d" $(BASH_PROFILE)
 	sed -i '/# ghm autocomplete/d' $(ZSH_PROFILE)
-	sed -i '/source.*ghm-autocompletion\.sh/d' $(ZSH_PROFILE)
+	sed -i "\|source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)|d" $(ZSH_PROFILE)
 	@echo "Uninstallation complete."
