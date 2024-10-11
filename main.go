@@ -231,11 +231,10 @@ func initStoreConfigCmd() *cobra.Command {
 }
 
 // StartProgress initializes and returns a single-line progress bar
+// StartProgress initializes and returns a single-line progress bar
 func StartProgress(total int) *pb.ProgressBar {
-    bar := pb.New(total).
-        SetTemplateString("{{bar . }} {{percent . }}").
-        Set(pb.StyleOneline) // Correct style
-    bar.Start()
+    bar := pb.StartNew(total) // Start a new progress bar
+    bar.SetTemplateString(`{{ red "Progress:" }} {{bar . }} {{percent . }}`) // Customize template
     return bar
 }
 
