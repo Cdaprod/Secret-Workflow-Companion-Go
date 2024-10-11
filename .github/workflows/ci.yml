@@ -19,18 +19,20 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.18'  # Specify the Go version
+          go-version: '1.18'
 
       - name: Cache Go modules
         uses: actions/cache@v3
         with:
-          path: go.sum
+          path: |
+            go.mod
+            go.sum
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
       - name: Install dependencies
-        run: go mod tidy
+        run: go mod tidy  # This command should be executed before build
 
       - name: Build binary
         run: go build -o ghm main.go
@@ -39,7 +41,7 @@ jobs:
         run: go test ./...
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ghm-binary
           path: ./ghm
@@ -57,6 +59,9 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: '1.18'
+
+      - name: Install dependencies
+        run: go mod tidy  # Ensure go.sum is generated in the release job too
 
       - name: Build binary
         run: go build -o ghm main.go
