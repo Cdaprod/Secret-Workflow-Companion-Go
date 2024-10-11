@@ -230,14 +230,6 @@ func initStoreConfigCmd() *cobra.Command {
     return storeConfigCmd
 }
 
-// StartProgress initializes and returns a single-line progress bar
-// StartProgress initializes and returns a single-line progress bar
-func StartProgress(total int) *pb.ProgressBar {
-    bar := pb.StartNew(total) // Start a new progress bar
-    bar.SetTemplateString(`{{ red "Progress:" }} {{bar . }} {{percent . }}`) // Customize template
-    return bar
-}
-
 // Strategy Interfaces and Structs
 
 // Strategy interface for executing different strategies
@@ -440,10 +432,10 @@ func saveSecretLocally(secretName, secretValue string) {
 }
 
 // StartProgress initializes and returns a single-line progress bar
+// StartProgress initializes and returns a single-line progress bar
 func StartProgress(total int) *pb.ProgressBar {
-    bar := pb.New(total).
-        SetTemplateString("{{bar . }} {{percent . }}").
-        Set(pb.StyleOneline) // Correct style
+    bar := pb.New(total) // Correctly initialize the progress bar
+    bar.SetTemplateString(`{{ red "Progress:" }} {{bar . }} {{percent . }}`) // Customize the template
     bar.Start()
     return bar
 }
