@@ -104,7 +104,7 @@ func (a *AddSecretStrategy) Execute() error {
 	// Change this line (use encryptedValue directly)
 	encryptedSecret := &github.EncryptedSecret{
 	    KeyID: publicKey.KeyID,
-	    Secret: encryptedValue,  // Use encryptedValue directly
+	    // Secret: encryptedValue,  // Use encryptedValue directly
 	}
 
 	// Change the method call to match the expected parameters
