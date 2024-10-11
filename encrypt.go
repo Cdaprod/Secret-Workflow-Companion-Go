@@ -4,12 +4,15 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 
 	"github.com/google/go-github/v50/github"
-	"golang.org/x/crypto/nacl/box"
 )
 
 // Encryptor interface abstracts the encryption functionality
@@ -26,54 +29,37 @@ func (e *EncryptorImpl) Encrypt(secretValue string, publicKey *github.PublicKey)
 		return "", errors.New("invalid public key provided")
 	}
 
-	// Perform encryption
-	encryptedValue, err := EncryptSecret(*publicKey.Key, secretValue)
-	if err != nil {
-		return "", err
-	}
-
-	return encryptedValue, nil
-}
-
-// EncryptSecret performs the encryption using NaCl's box (sealed box implementation)
-func EncryptSecret(publicKey string, secretValue string) (string, error) {
 	// Decode the public key from base64
-	pubKeyBytes, err := base64.StdEncoding.DecodeString(publicKey)
+	keyBytes, err := base64.StdEncoding.DecodeString(*publicKey.Key)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode public key: %w", err)
 	}
 
-	if len(pubKeyBytes) != 32 {
-		return "", errors.New("invalid public key length")
+	// Parse the public key (Assuming it's in PKIX format)
+	parsedPubKey, err := x509.ParsePKIXPublicKey(keyBytes)
+	if err != nil {
+		// Try parsing as PKCS1
+		parsedPubKey, err = x509.ParsePKCS1PublicKey(keyBytes)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse RSA public key: %w", err)
+		}
 	}
 
-	var pubKey [32]byte
-	copy(pubKey[:], pubKeyBytes)
-
-	// Generate ephemeral keypair
-	var ephPub, ephPriv [32]byte
-	if _, err := rand.Read(ephPub[:]); err != nil {
-		return "", fmt.Errorf("failed to generate ephemeral public key: %w", err)
-	}
-	if _, err := rand.Read(ephPriv[:]); err != nil {
-		return "", fmt.Errorf("failed to generate ephemeral private key: %w", err)
+	rsaPubKey, ok := parsedPubKey.(*rsa.PublicKey)
+	if !ok {
+		return "", errors.New("public key is not an RSA public key")
 	}
 
-	// Generate a random nonce
-	var nonce [24]byte
-	if _, err := rand.Read(nonce[:]); err != nil {
-		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	// Encrypt the secret value using RSA-OAEP with SHA-256
+	label := []byte("") // No label
+	hash := sha256.New()
+	ciphertext, err := rsa.EncryptOAEP(hash, rand.Reader, rsaPubKey, []byte(secretValue), label)
+	if err != nil {
+		return "", fmt.Errorf("failed to encrypt secret: %w", err)
 	}
 
-	// Encrypt the secret using box.Seal
-	ciphertext := box.Seal(nil, []byte(secretValue), &nonce, &pubKey, &ephPriv)
+	// Encode the ciphertext to base64
+	encryptedValue := base64.StdEncoding.EncodeToString(ciphertext)
 
-	// Combine ephemeral public key + nonce + ciphertext
-	combined := append(ephPub[:], nonce[:]...)
-	combined = append(combined, ciphertext...)
-
-	// Base64 encode the combined data
-	encryptedBase64 := base64.StdEncoding.EncodeToString(combined)
-
-	return encryptedBase64, nil
+	return encryptedValue, nil
 }

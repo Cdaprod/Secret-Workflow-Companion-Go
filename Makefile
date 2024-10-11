@@ -12,6 +12,7 @@ ZSH_PROFILE=$(HOME)/.zshrc
 all: build
 
 build:
+	$(GO) mod tidy
 	$(GO) build -o $(BINARY_NAME) main.go
 	
 test:

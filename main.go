@@ -15,6 +15,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/google/go-github/v50/github"
 	"github.com/spf13/cobra"
@@ -131,8 +132,8 @@ func (a *AddWorkflowStrategy) Execute() error {
 
 	// Initialize authentication for git operations
 	auth := &http.BasicAuth{
-		Username: "ghm",          // Can be anything except an empty string
-		Password: a.Token,        // GitHub Personal Access Token
+		Username: "ghm",     // Can be anything except an empty string
+		Password: a.Token,   // GitHub Personal Access Token
 	}
 
 	// Clone the repository into a temporary directory
@@ -185,8 +186,8 @@ func (a *AddWorkflowStrategy) Execute() error {
 
 	// Commit the changes
 	commitMsg := "Add GitHub Actions workflow"
-	_, err = worktree.Commit(commitMsg, &git.CommitOptions{
-		Author: &git.Signature{
+	commit, err := worktree.Commit(commitMsg, &git.CommitOptions{
+		Author: &object.Signature{
 			Name:  "ghm",
 			Email: "ghm@example.com",
 			When:  time.Now(),
@@ -196,6 +197,14 @@ func (a *AddWorkflowStrategy) Execute() error {
 		fmt.Fprintln(os.Stderr, red("Error committing changes:"), err)
 		return err
 	}
+
+	obj, err := repoGit.CommitObject(commit)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, red("Error getting commit object:"), err)
+		return err
+	}
+
+	fmt.Println(green("Committed changes: %s", obj.Hash))
 
 	// Push the commit to GitHub
 	fmt.Println(cyan("Pushing changes to GitHub..."))
