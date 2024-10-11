@@ -26,8 +26,8 @@ test:
 
 install: build
 	sudo mkdir -p $(INSTALL_DIR)  # Ensure /usr/local/bin exists
-	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/  # Corrected: copy the binary to /usr/local/bin
-	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/  # Copy the autocompletion script to /usr/local/bin
+	sudo cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)  # Copy the binary to /usr/local/bin/ghm
+	sudo cp $(AUTOCOMPLETE_SCRIPT) $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)  # Copy the autocompletion script to /usr/local/bin/ghm-autocompletion.sh
 	@echo "# ghm autocomplete" >> $(BASH_PROFILE)
 	@echo "source $(INSTALL_DIR)/$(AUTOCOMPLETE_SCRIPT)" >> $(BASH_PROFILE)
 	@echo "# ghm autocomplete" >> $(ZSH_PROFILE)
