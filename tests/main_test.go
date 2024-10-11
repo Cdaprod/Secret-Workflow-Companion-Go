@@ -289,3 +289,86 @@ func TestColorizedOutputs(t *testing.T) {
     hasANSI := strings.Contains(stdout, "\033[")
     assert.True(t, hasANSI, "Output should contain ANSI escape codes")
 }
+
+// MockEncryptor is a mock implementation of the Encryptor interface
+type MockEncryptor struct{}
+
+// Encrypt returns a dummy encrypted string
+func (m *MockEncryptor) Encrypt(secretValue string, publicKey *github.PublicKey) (string, error) {
+    return "dummy_encrypted_value", nil
+}
+
+// TestAddSecret tests the add-secret command
+func TestAddSecret(t *testing.T) {
+    // Setup mock GitHub server
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/actions/secrets/public-key") {
+            response := map[string]interface{}{
+                "key_id": "dummykeyid",
+                "key":    "dummypublickey",
+            }
+            json.NewEncoder(w).Encode(response)
+            return
+        }
+        if r.Method == "PUT" && strings.HasSuffix(r.URL.Path, "/actions/secrets/TEST_SECRET") {
+            response := map[string]interface{}{
+                "name": "TEST_SECRET",
+            }
+            json.NewEncoder(w).Encode(response)
+            return
+        }
+        w.WriteHeader(http.StatusNotFound)
+    }))
+    defer server.Close()
+
+    // Override the GitHub API URL in the application
+    os.Setenv("GITHUB_API_URL", server.URL)
+    defer os.Unsetenv("GITHUB_API_URL")
+
+    // Override the GitHub token
+    os.Setenv("GITHUB_TOKEN", "dummy_token")
+    defer os.Unsetenv("GITHUB_TOKEN")
+
+    // Initialize Viper with the mock GitHub API URL
+    viper.Set("github_token", "dummy_token")
+
+    // Execute the add-secret command
+    stdout, stderr, err := executeGhmCommand(
+        "add-secret",
+        "--repo", "owner/repo",
+        "--name", "TEST_SECRET",
+        "--value", "testvalue123",
+    )
+
+    // Assertions
+    require.NoError(t, err, "Executing add-secret should not return an error")
+    require.Empty(t, stderr, "Executing add-secret should not output to stderr")
+
+    assert.Contains(t, stdout, "Secret 'TEST_SECRET' added to repository 'owner/repo' successfully.")
+    assert.Contains(t, stdout, "Secret 'TEST_SECRET' saved locally.")
+
+    // Verify that the secret is saved locally in secrets.json
+    secretsFile := filepath.Join("..", "secrets.json")
+    defer os.Remove(secretsFile) // Clean up after test
+
+    data, err := os.ReadFile(secretsFile)
+    require.NoError(t, err, "Reading secrets.json should not return an error")
+
+    var secrets map[string]string
+    err = json.Unmarshal(data, &secrets)
+    require.NoError(t, err, "Unmarshalling secrets.json should not return an error")
+
+    assert.Equal(t, "testvalue123", secrets["TEST_SECRET"], "Secret value should match the input")
+}
+
+// executeGhmCommand runs the ghm command with provided arguments and returns stdout, stderr, and error
+func executeGhmCommand(args ...string) (string, string, error) {
+    cmd := exec.Command("../ghm", args...)
+
+    var stdout, stderr bytes.Buffer
+    cmd.Stdout = &stdout
+    cmd.Stderr = &stderr
+
+    err := cmd.Run()
+    return stdout.String(), stderr.String(), err
+}
