@@ -1,6 +1,12 @@
 # Secret Workflow Companion (Golang)
 
-[Python Version](https://github.com/cdaprod/secret-workflow-companion-py)
+[![Build and Test ghm](https://github.com/Cdaprod/Secret-Workflow-Companion-Go/actions/workflows/ci.yml/badge.svg)](https://github.com/Cdaprod/Secret-Workflow-Companion-Go/actions/workflows/ci.yml)
+
+---
+
+[Alternate Python Version](https://github.com/cdaprod/secret-workflow-companion-py)
+
+---
 
 A command-line interface tool written in Go for managing GitHub secrets and workflows, ensuring secure and efficient operations across repositories.
 

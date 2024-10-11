@@ -1,4 +1,4 @@
-name: Build and Test ghm
+name: Go Build and Release
 
 on:
   push:
@@ -13,28 +13,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.18'  # Specify your required Go version
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18'  # Specify the Go version
 
-    - name: Install dependencies
-      run: go mod tidy
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: go.sum
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-    - name: Build binary
-      run: go build -o ghm main.go
+      - name: Install dependencies
+        run: go mod tidy
 
-    - name: Run tests
-      run: go test ./...
+      - name: Build binary
+        run: go build -o ghm main.go
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3  # Update to v3
-      with:
-        name: ghm-binary
-        path: ./ghm
+      - name: Run tests
+        run: go test ./...
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ghm-binary
+          path: ./ghm
 
   release:
     runs-on: ubuntu-latest
@@ -42,27 +50,27 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v3
-      with:
-        go-version: '1.18'
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18'
 
-    - name: Build binary
-      run: go build -o ghm main.go
+      - name: Build binary
+        run: go build -o ghm main.go
 
-    - name: Check if GITHUB_TOKEN is available
-      run: |
-        if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
-          echo "GITHUB_TOKEN is not available. Skipping release step."
-          exit 0
-        fi
+      - name: Check if GITHUB_TOKEN is available
+        run: |
+          if [ -z "${{ secrets.GITHUB_TOKEN }}" ]; then
+            echo "GITHUB_TOKEN is not available. Skipping release step."
+            exit 0
+          fi
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: ./ghm
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ./ghm
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
