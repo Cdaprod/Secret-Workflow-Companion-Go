@@ -8,19 +8,22 @@ import (
     "os/exec"
     "path/filepath"
     "strings"
+    "syscall"
+    "time"
 
     "github.com/fatih/color"
+    "github.com/cheggaaa/pb/v3"
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     "golang.org/x/term"
-    "syscall"
 )
 
+// Strategy interface for executing different strategies
 type Strategy interface {
     Execute()
 }
 
-// AddSecretStrategy concrete strategy for adding a GitHub secret
+// AddSecretStrategy for adding a GitHub secret
 type AddSecretStrategy struct {
     Token       string
     Repo        string
@@ -28,27 +31,37 @@ type AddSecretStrategy struct {
     SecretValue string
 }
 
-// Execute method for AddSecretStrategy
 func (a *AddSecretStrategy) Execute() {
     env := os.Environ()
     env = append(env, fmt.Sprintf("GITHUB_TOKEN=%s", a.Token))
+
+    // Loading Animation
+    progress := pb.StartNew(100)
+    go func() {
+        for i := 0; i < 100; i++ {
+            time.Sleep(10 * time.Millisecond)
+            progress.Increment()
+        }
+    }()
 
     // Command to add the secret using GitHub CLI
     cmd := exec.Command("gh", "secret", "set", a.SecretName, "--repo", a.Repo, "--body", a.SecretValue)
     cmd.Env = env
     output, err := cmd.CombinedOutput()
+    progress.Finish()
+
     if err != nil {
-        color.Red("Error adding secret: %s", err)
+        color.New(color.FgRed).Printf("Error adding secret: %s\n", err)
         fmt.Println(string(output))
         return
     }
-    color.Green("Secret '%s' added to repository '%s' successfully.", a.SecretName, a.Repo)
+    color.New(color.FgGreen).Printf("Secret '%s' added to repository '%s' successfully.\n", a.SecretName, a.Repo)
 
     // Save secret locally for persistence
     saveSecretLocally(a.SecretName, a.SecretValue)
 }
 
-// AddWorkflowStrategy concrete strategy for adding a GitHub Actions workflow file
+// AddWorkflowStrategy for adding a GitHub Actions workflow
 type AddWorkflowStrategy struct {
     Token        string
     Repo         string
@@ -56,14 +69,22 @@ type AddWorkflowStrategy struct {
     Content      string
 }
 
-// Execute method for AddWorkflowStrategy
 func (a *AddWorkflowStrategy) Execute() {
     repoDir := a.RepoDirectory()
+
+    // Loading Animation
+    progress := pb.StartNew(100)
+    go func() {
+        for i := 0; i < 100; i++ {
+            time.Sleep(10 * time.Millisecond)
+            progress.Increment()
+        }
+    }()
 
     // Check if current directory is the repository
     cwd, err := os.Getwd()
     if err != nil {
-        color.Red("Error getting current working directory: %s", err)
+        color.New(color.FgRed).Printf("Error getting current working directory: %s\n", err)
         return
     }
 
@@ -73,21 +94,23 @@ func (a *AddWorkflowStrategy) Execute() {
     }
 
     if inRepoDir {
-        color.Green("Running inside repository directory '%s'.", repoDir)
+        color.New(color.FgGreen).Printf("Running inside repository directory '%s'.\n", repoDir)
     } else {
         // Clone the repository if it doesn't exist locally
         if _, err := os.Stat(repoDir); os.IsNotExist(err) {
             cloneCmd := exec.Command("git", "clone", fmt.Sprintf("https://github.com/%s.git", a.Repo), repoDir)
             cloneCmd.Env = append(os.Environ(), fmt.Sprintf("GITHUB_TOKEN=%s", a.Token))
             cloneOutput, err := cloneCmd.CombinedOutput()
+            progress.Finish()
             if err != nil {
-                color.Red("Error cloning repository: %s", err)
+                color.New(color.FgRed).Printf("Error cloning repository: %s\n", err)
                 fmt.Println(string(cloneOutput))
                 return
             }
-            color.Green("Repository '%s' cloned successfully.", a.Repo)
+            color.New(color.FgGreen).Printf("Repository '%s' cloned successfully.\n", a.Repo)
         } else {
-            color.Yellow("Repository '%s' already exists locally.", a.Repo)
+            color.New(color.FgYellow).Printf("Repository '%s' already exists locally.\n", a.Repo)
+            progress.Finish()
         }
         // Change directory to the repository
         cwd = repoDir
@@ -97,17 +120,17 @@ func (a *AddWorkflowStrategy) Execute() {
     fullPath := filepath.Join(cwd, ".github", "workflows", a.WorkflowPath)
     err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
     if err != nil {
-        color.Red("Error creating workflow directory: %s", err)
+        color.New(color.FgRed).Printf("Error creating workflow directory: %s\n", err)
         return
     }
 
     err = os.WriteFile(fullPath, []byte(a.Content), 0644)
     if err != nil {
-        color.Red("Error writing workflow file: %s", err)
+        color.New(color.FgRed).Printf("Error writing workflow file: %s\n", err)
         return
     }
 
-    // Add, commit, and push changes
+    // Add, commit, and push changes with loading animation
     gitCommands := [][]string{
         {"git", "add", "."},
         {"git", "commit", "-m", "Add new GitHub Actions workflow"},
@@ -120,28 +143,28 @@ func (a *AddWorkflowStrategy) Execute() {
         cmd.Env = append(os.Environ(), fmt.Sprintf("GITHUB_TOKEN=%s", a.Token))
         output, err := cmd.CombinedOutput()
         if err != nil {
-            color.Red("Error running command '%s': %s", strings.Join(args, " "), err)
+            progress.Finish()
+            color.New(color.FgRed).Printf("Error running command '%s': %s\n", strings.Join(args, " "), err)
             fmt.Println(string(output))
             return
         }
     }
 
-    color.Green("Workflow '%s' added to repository '%s' successfully.", a.WorkflowPath, a.Repo)
+    progress.Finish()
+    color.New(color.FgGreen).Printf("Workflow '%s' added to repository '%s' successfully.\n", a.WorkflowPath, a.Repo)
 }
 
-// RepoDirectory returns the local directory name of the repository
 func (a *AddWorkflowStrategy) RepoDirectory() string {
     parts := strings.Split(a.Repo, "/")
     return parts[len(parts)-1]
 }
 
-// StoreConfigStrategy concrete strategy for storing repository configurations
+// StoreConfigStrategy for storing configuration key-value pairs
 type StoreConfigStrategy struct {
     ConfigKey   string
     ConfigValue string
 }
 
-// Execute method for StoreConfigStrategy
 func (s *StoreConfigStrategy) Execute() {
     viper.Set(s.ConfigKey, s.ConfigValue)
     err := viper.WriteConfig()
@@ -150,15 +173,15 @@ func (s *StoreConfigStrategy) Execute() {
             // Config file doesn't exist, create it
             err = viper.SafeWriteConfig()
             if err != nil {
-                color.Red("Error creating config file: %s", err)
+                color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
                 return
             }
         } else {
-            color.Red("Error writing config: %s", err)
+            color.New(color.FgRed).Printf("Error writing config: %s\n", err)
             return
         }
     }
-    color.Yellow("Configuration '%s' saved successfully.", s.ConfigKey)
+    color.New(color.FgYellow).Printf("Configuration '%s' saved successfully.\n", s.ConfigKey)
 }
 
 // Function to save the secret locally in a JSON file
@@ -179,7 +202,7 @@ func saveSecretLocally(secretName, secretValue string) {
 
     file, err := os.Create(secretsFile)
     if err != nil {
-        color.Red("Error saving secret locally: %s", err)
+        color.New(color.FgRed).Printf("Error saving secret locally: %s\n", err)
         return
     }
     defer file.Close()
@@ -187,15 +210,30 @@ func saveSecretLocally(secretName, secretValue string) {
     encoder.SetIndent("", "  ")
     err = encoder.Encode(secrets)
     if err != nil {
-        color.Red("Error encoding secrets: %s", err)
+        color.New(color.FgRed).Printf("Error encoding secrets: %s\n", err)
         return
     }
 
-    color.Yellow("Secret '%s' saved locally.", secretName)
+    color.New(color.FgYellow).Printf("Secret '%s' saved locally.\n", secretName)
+}
+
+// Function to print ASCII Header
+func printASCIIHeader() {
+    header := `
+  ____ _____  __  __ 
+ / ___|_   _|/ _|/ _|
+| |  _  | | | |_| |_ 
+| |_| | | | |  _|  _|
+ \____| |_| |_| |_|  
+                      
+    `
+    color.New(color.FgCyan).Println(header)
 }
 
 // Main function to handle commands using Cobra
 func main() {
+    printASCIIHeader()
+
     // Initialize Viper
     viper.SetConfigName("config")
     viper.SetConfigType("json")
@@ -208,12 +246,12 @@ func main() {
             // Config file not found; create it
             err = viper.SafeWriteConfig()
             if err != nil {
-                color.Red("Error creating config file: %s", err)
+                color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
                 return
             }
-            color.Yellow("Config file created: config.json")
+            color.New(color.FgYellow).Println("Config file created: config.json")
         } else {
-            color.Red("Error reading config file: %s", err)
+            color.New(color.FgRed).Printf("Error reading config file: %s\n", err)
             return
         }
     }
@@ -227,11 +265,11 @@ func main() {
             // Ensure GitHub token is available
             token = viper.GetString("github_token")
             if token == "" {
-                color.Blue("Enter your GitHub token:")
+                color.New(color.FgBlue).Println("Enter your GitHub token:")
                 byteToken, err := term.ReadPassword(int(syscall.Stdin))
                 fmt.Println()
                 if err != nil {
-                    color.Red("Error reading token: %s", err)
+                    color.New(color.FgRed).Printf("Error reading token: %s\n", err)
                     os.Exit(1)
                 }
                 token = strings.TrimSpace(string(byteToken))
@@ -241,11 +279,11 @@ func main() {
                     if _, ok := err.(viper.ConfigFileNotFoundError); ok {
                         err = viper.SafeWriteConfig()
                         if err != nil {
-                            color.Red("Error creating config file: %s", err)
+                            color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
                             os.Exit(1)
                         }
                     } else {
-                        color.Red("Error writing config: %s", err)
+                        color.New(color.FgRed).Printf("Error writing config: %s\n", err)
                         os.Exit(1)
                     }
                 }
@@ -263,20 +301,20 @@ func main() {
         Short: "Add a secret to a GitHub repository",
         Run: func(cmd *cobra.Command, args []string) {
             if repo == "" {
-                color.Red("Repository must be specified.")
+                color.New(color.FgRed).Println("Repository must be specified.")
                 return
             }
             if !strings.Contains(repo, "/") {
-                color.Red("Invalid repository format. Please use 'owner/repo'.")
+                color.New(color.FgRed).Println("Invalid repository format. Please use 'owner/repo'.")
                 return
             }
             if secretName == "" {
-                color.Red("Secret name must be provided.")
+                color.New(color.FgRed).Println("Secret name must be provided.")
                 return
             }
             if secretValue == "" {
                 // Prompt for secret value if not provided
-                color.Blue("Enter the secret value:")
+                color.New(color.FgBlue).Println("Enter the secret value:")
                 reader := bufio.NewReader(os.Stdin)
                 secretValueInput, _ := reader.ReadString('\n')
                 secretValue = strings.TrimSpace(secretValueInput)
@@ -304,26 +342,26 @@ func main() {
         Short: "Add a GitHub Actions workflow to a repository",
         Run: func(cmd *cobra.Command, args []string) {
             if repo == "" {
-                color.Red("Repository must be specified.")
+                color.New(color.FgRed).Println("Repository must be specified.")
                 return
             }
             if !strings.Contains(repo, "/") {
-                color.Red("Invalid repository format. Please use 'owner/repo'.")
+                color.New(color.FgRed).Println("Invalid repository format. Please use 'owner/repo'.")
                 return
             }
             if workflowName == "" {
-                color.Red("Workflow name must be provided.")
+                color.New(color.FgRed).Println("Workflow name must be provided.")
                 return
             }
             if workflowContent == "" && workflowFile == "" {
-                color.Red("Either workflow content or workflow file must be provided.")
+                color.New(color.FgRed).Println("Either workflow content or workflow file must be provided.")
                 return
             }
             if workflowContent == "" && workflowFile != "" {
                 // Read content from the provided file
                 contentBytes, err := os.ReadFile(workflowFile)
                 if err != nil {
-                    color.Red("Error reading workflow file '%s': %s", workflowFile, err)
+                    color.New(color.FgRed).Printf("Error reading workflow file '%s': %s\n", workflowFile, err)
                     return
                 }
                 workflowContent = string(contentBytes)
@@ -351,11 +389,11 @@ func main() {
         Short: "Store a configuration key-value pair",
         Run: func(cmd *cobra.Command, args []string) {
             if configKey == "" {
-                color.Red("Configuration key must be provided.")
+                color.New(color.FgRed).Println("Configuration key must be provided.")
                 return
             }
             if configValue == "" {
-                color.Red("Configuration value must be provided.")
+                color.New(color.FgRed).Println("Configuration value must be provided.")
                 return
             }
             strategy := &StoreConfigStrategy{
@@ -375,7 +413,7 @@ func main() {
 
     // Execute the root command
     if err := rootCmd.Execute(); err != nil {
-        color.Red("Error: %s", err)
+        color.New(color.FgRed).Printf("Error: %s\n", err)
         os.Exit(1)
     }
 }
