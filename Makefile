@@ -25,7 +25,6 @@ test:
 	$(GO) test ./...
 
 install: build
- sudo mkdir -p $(INSTALL_DIR)  # Ensure /usr/local/bin exists
  echo "Copying binary $(BINARY_NAME) to $(INSTALL_DIR)"
  sudo cp $(BINARY_NAME) $(INSTALL_DIR)/  # Copy the binary to /usr/local/bin
  echo "Copying autocompletion script $(AUTOCOMPLETE_SCRIPT) to $(INSTALL_DIR)"
