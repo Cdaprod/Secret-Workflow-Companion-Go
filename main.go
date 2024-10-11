@@ -18,6 +18,228 @@ import (
     "golang.org/x/term"
 )
 
+// Global color functions for easy reuse
+var (
+    red    = color.New(color.FgRed).SprintFunc()
+    green  = color.New(color.FgGreen).SprintFunc()
+    yellow = color.New(color.FgYellow).SprintFunc()
+    blue   = color.New(color.FgBlue).SprintFunc()
+    cyan   = color.New(color.FgCyan).SprintFunc()
+    bold   = color.New(color.Bold).SprintFunc()
+)
+
+// ASCII Header Function
+func printASCIIHeader() {
+    header := `
+  ____ _     _  __  __ 
+ / ___| |__ (_)|  \/  |
+| |  _| '_ \| || |\/| |
+| |_| | | | | || |  | |
+ \____|_| |_|_||_|  |_| 
+                          
+    `
+    color.New(color.FgCyan).Println(header)
+    color.New(color.FgMagenta).Println("    GitHub Management CLI (ghm)")
+    color.New(color.FgCyan).Println("=======================================\n")
+}
+
+// Initialize Viper Configuration
+func initConfig() {
+    viper.SetConfigName("config")
+    viper.SetConfigType("json")
+    viper.AddConfigPath(".")
+    viper.AutomaticEnv()
+
+    if err := viper.ReadInConfig(); err != nil {
+        if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+            if err := viper.SafeWriteConfig(); err != nil {
+                red("Error creating config file:", err)
+                os.Exit(1)
+            }
+            yellow("Config file created: config.json")
+        } else {
+            red("Error reading config file:", err)
+            os.Exit(1)
+        }
+    }
+}
+
+// Initialize Root Command
+func initRootCmd() *cobra.Command {
+    var token string
+
+    rootCmd := &cobra.Command{
+        Use:   "ghm",
+        Short: "GitHub Management CLI",
+        PersistentPreRun: func(cmd *cobra.Command, args []string) {
+            token = viper.GetString("github_token")
+            if token == "" {
+                blue("Enter your GitHub token:")
+                byteToken, err := term.ReadPassword(int(syscall.Stdin))
+                fmt.Println()
+                if err != nil {
+                    red("Error reading token:", err)
+                    os.Exit(1)
+                }
+                token = strings.TrimSpace(string(byteToken))
+                viper.Set("github_token", token)
+                if err := viper.WriteConfig(); err != nil {
+                    if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+                        if err := viper.SafeWriteConfig(); err != nil {
+                            red("Error creating config file:", err)
+                            os.Exit(1)
+                        }
+                    } else {
+                        red("Error writing config:", err)
+                        os.Exit(1)
+                    }
+                }
+            }
+        },
+    }
+
+    // Add subcommands
+    rootCmd.AddCommand(initAddSecretCmd(&token))
+    rootCmd.AddCommand(initAddWorkflowCmd(&token))
+    rootCmd.AddCommand(initStoreConfigCmd())
+
+    return rootCmd
+}
+
+// Initialize Add Secret Command
+func initAddSecretCmd(token *string) *cobra.Command {
+    var repo, secretName, secretValue string
+
+    addSecretCmd := &cobra.Command{
+        Use:   "add-secret",
+        Short: "Add a secret to a GitHub repository",
+        Run: func(cmd *cobra.Command, args []string) {
+            if repo == "" {
+                red("Repository must be specified.")
+                return
+            }
+            if !strings.Contains(repo, "/") {
+                red("Invalid repository format. Please use 'owner/repo'.")
+                return
+            }
+            if secretName == "" {
+                red("Secret name must be provided.")
+                return
+            }
+            if secretValue == "" {
+                blue("Enter the secret value:")
+                reader := bufio.NewReader(os.Stdin)
+                secretValueInput, _ := reader.ReadString('\n')
+                secretValue = strings.TrimSpace(secretValueInput)
+            }
+            strategy := &AddSecretStrategy{
+                Token:       *token,
+                Repo:        repo,
+                SecretName:  secretName,
+                SecretValue: secretValue,
+            }
+            strategy.Execute()
+        },
+    }
+
+    addSecretCmd.Flags().StringVarP(&repo, "repo", "r", "", "Repository name in 'owner/repo' format")
+    addSecretCmd.Flags().StringVarP(&secretName, "name", "n", "", "Name of the secret")
+    addSecretCmd.Flags().StringVarP(&secretValue, "value", "v", "", "Value of the secret")
+
+    return addSecretCmd
+}
+
+// Initialize Add Workflow Command
+func initAddWorkflowCmd(token *string) *cobra.Command {
+    var repo, workflowName, workflowContent, workflowFile string
+
+    addWorkflowCmd := &cobra.Command{
+        Use:   "add-workflow",
+        Short: "Add a GitHub Actions workflow to a repository",
+        Run: func(cmd *cobra.Command, args []string) {
+            if repo == "" {
+                red("Repository must be specified.")
+                return
+            }
+            if !strings.Contains(repo, "/") {
+                red("Invalid repository format. Please use 'owner/repo'.")
+                return
+            }
+            if workflowName == "" {
+                red("Workflow name must be provided.")
+                return
+            }
+            if workflowContent == "" && workflowFile == "" {
+                red("Either workflow content or workflow file must be provided.")
+                return
+            }
+            if workflowContent == "" && workflowFile != "" {
+                contentBytes, err := os.ReadFile(workflowFile)
+                if err != nil {
+                    red("Error reading workflow file '%s': %s\n", workflowFile, err)
+                    return
+                }
+                workflowContent = string(contentBytes)
+            }
+            strategy := &AddWorkflowStrategy{
+                Token:        *token,
+                Repo:         repo,
+                WorkflowPath: workflowName,
+                Content:      workflowContent,
+            }
+            strategy.Execute()
+        },
+    }
+
+    addWorkflowCmd.Flags().StringVarP(&repo, "repo", "r", "", "Repository name in 'owner/repo' format")
+    addWorkflowCmd.Flags().StringVarP(&workflowName, "name", "n", "", "Name of the workflow file (e.g., ci.yml)")
+    addWorkflowCmd.Flags().StringVarP(&workflowContent, "content", "c", "", "Content of the workflow file")
+    addWorkflowCmd.Flags().StringVarP(&workflowFile, "file", "f", "", "Path to the workflow file to read content from")
+
+    return addWorkflowCmd
+}
+
+// Initialize Store Config Command
+func initStoreConfigCmd() *cobra.Command {
+    var configKey, configValue string
+
+    storeConfigCmd := &cobra.Command{
+        Use:   "store-config",
+        Short: "Store a configuration key-value pair",
+        Run: func(cmd *cobra.Command, args []string) {
+            if configKey == "" {
+                red("Configuration key must be provided.")
+                return
+            }
+            if configValue == "" {
+                red("Configuration value must be provided.")
+                return
+            }
+            strategy := &StoreConfigStrategy{
+                ConfigKey:   configKey,
+                ConfigValue: configValue,
+            }
+            strategy.Execute()
+        },
+    }
+
+    storeConfigCmd.Flags().StringVarP(&configKey, "key", "k", "", "Configuration key")
+    storeConfigCmd.Flags().StringVarP(&configValue, "value", "v", "", "Configuration value")
+
+    return storeConfigCmd
+}
+
+// StartProgress initializes and returns a single-line progress bar
+func StartProgress(total int) *pb.ProgressBar {
+    bar := pb.New(total).
+        SetTemplateString("{{bar . }} {{percent . }}").
+        Set(pb.ProgressBarStyle, pb.StyleModern)
+    bar.Start()
+    return bar
+}
+
+// Strategy Interfaces and Structs
+
 // Strategy interface for executing different strategies
 type Strategy interface {
     Execute()
@@ -35,8 +257,8 @@ func (a *AddSecretStrategy) Execute() {
     env := os.Environ()
     env = append(env, fmt.Sprintf("GITHUB_TOKEN=%s", a.Token))
 
-    // Loading Animation
-    progress := pb.StartNew(100)
+    // Initialize progress bar
+    progress := StartProgress(100)
     go func() {
         for i := 0; i < 100; i++ {
             time.Sleep(10 * time.Millisecond)
@@ -51,11 +273,11 @@ func (a *AddSecretStrategy) Execute() {
     progress.Finish()
 
     if err != nil {
-        color.New(color.FgRed).Printf("Error adding secret: %s\n", err)
+        red("Error adding secret:", err)
         fmt.Println(string(output))
         return
     }
-    color.New(color.FgGreen).Printf("Secret '%s' added to repository '%s' successfully.\n", a.SecretName, a.Repo)
+    green("Secret '%s' added to repository '%s' successfully.", a.SecretName, a.Repo)
 
     // Save secret locally for persistence
     saveSecretLocally(a.SecretName, a.SecretValue)
@@ -72,8 +294,8 @@ type AddWorkflowStrategy struct {
 func (a *AddWorkflowStrategy) Execute() {
     repoDir := a.RepoDirectory()
 
-    // Loading Animation
-    progress := pb.StartNew(100)
+    // Initialize progress bar
+    progress := StartProgress(100)
     go func() {
         for i := 0; i < 100; i++ {
             time.Sleep(10 * time.Millisecond)
@@ -84,7 +306,7 @@ func (a *AddWorkflowStrategy) Execute() {
     // Check if current directory is the repository
     cwd, err := os.Getwd()
     if err != nil {
-        color.New(color.FgRed).Printf("Error getting current working directory: %s\n", err)
+        red("Error getting current working directory:", err)
         return
     }
 
@@ -94,7 +316,7 @@ func (a *AddWorkflowStrategy) Execute() {
     }
 
     if inRepoDir {
-        color.New(color.FgGreen).Printf("Running inside repository directory '%s'.\n", repoDir)
+        green("Running inside repository directory '%s'.", repoDir)
     } else {
         // Clone the repository if it doesn't exist locally
         if _, err := os.Stat(repoDir); os.IsNotExist(err) {
@@ -103,13 +325,13 @@ func (a *AddWorkflowStrategy) Execute() {
             cloneOutput, err := cloneCmd.CombinedOutput()
             progress.Finish()
             if err != nil {
-                color.New(color.FgRed).Printf("Error cloning repository: %s\n", err)
+                red("Error cloning repository:", err)
                 fmt.Println(string(cloneOutput))
                 return
             }
-            color.New(color.FgGreen).Printf("Repository '%s' cloned successfully.\n", a.Repo)
+            green("Repository '%s' cloned successfully.", a.Repo)
         } else {
-            color.New(color.FgYellow).Printf("Repository '%s' already exists locally.\n", a.Repo)
+            yellow("Repository '%s' already exists locally.", a.Repo)
             progress.Finish()
         }
         // Change directory to the repository
@@ -120,17 +342,17 @@ func (a *AddWorkflowStrategy) Execute() {
     fullPath := filepath.Join(cwd, ".github", "workflows", a.WorkflowPath)
     err = os.MkdirAll(filepath.Dir(fullPath), os.ModePerm)
     if err != nil {
-        color.New(color.FgRed).Printf("Error creating workflow directory: %s\n", err)
+        red("Error creating workflow directory:", err)
         return
     }
 
     err = os.WriteFile(fullPath, []byte(a.Content), 0644)
     if err != nil {
-        color.New(color.FgRed).Printf("Error writing workflow file: %s\n", err)
+        red("Error writing workflow file:", err)
         return
     }
 
-    // Add, commit, and push changes with loading animation
+    // Add, commit, and push changes with progress
     gitCommands := [][]string{
         {"git", "add", "."},
         {"git", "commit", "-m", "Add new GitHub Actions workflow"},
@@ -144,14 +366,14 @@ func (a *AddWorkflowStrategy) Execute() {
         output, err := cmd.CombinedOutput()
         if err != nil {
             progress.Finish()
-            color.New(color.FgRed).Printf("Error running command '%s': %s\n", strings.Join(args, " "), err)
+            red("Error running command '%s': %s", strings.Join(args, " "), err)
             fmt.Println(string(output))
             return
         }
     }
 
     progress.Finish()
-    color.New(color.FgGreen).Printf("Workflow '%s' added to repository '%s' successfully.\n", a.WorkflowPath, a.Repo)
+    green("Workflow '%s' added to repository '%s' successfully.", a.WorkflowPath, a.Repo)
 }
 
 func (a *AddWorkflowStrategy) RepoDirectory() string {
@@ -173,15 +395,15 @@ func (s *StoreConfigStrategy) Execute() {
             // Config file doesn't exist, create it
             err = viper.SafeWriteConfig()
             if err != nil {
-                color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
+                red("Error creating config file:", err)
                 return
             }
         } else {
-            color.New(color.FgRed).Printf("Error writing config: %s\n", err)
+            red("Error writing config:", err)
             return
         }
     }
-    color.New(color.FgYellow).Printf("Configuration '%s' saved successfully.\n", s.ConfigKey)
+    yellow("Configuration '%s' saved successfully.", s.ConfigKey)
 }
 
 // Function to save the secret locally in a JSON file
@@ -202,7 +424,7 @@ func saveSecretLocally(secretName, secretValue string) {
 
     file, err := os.Create(secretsFile)
     if err != nil {
-        color.New(color.FgRed).Printf("Error saving secret locally: %s\n", err)
+        red("Error saving secret locally:", err)
         return
     }
     defer file.Close()
@@ -210,210 +432,29 @@ func saveSecretLocally(secretName, secretValue string) {
     encoder.SetIndent("", "  ")
     err = encoder.Encode(secrets)
     if err != nil {
-        color.New(color.FgRed).Printf("Error encoding secrets: %s\n", err)
+        red("Error encoding secrets:", err)
         return
     }
 
-    color.New(color.FgYellow).Printf("Secret '%s' saved locally.\n", secretName)
+    yellow("Secret '%s' saved locally.", secretName)
 }
 
-// Function to print ASCII Header
-func printASCIIHeader() {
-    header := `
-  ____ _____  __  __ 
- / ___|_   _|/ _|/ _|
-| |  _  | | | |_| |_ 
-| |_| | | | |  _|  _|
- \____| |_| |_| |_|  
-                      
-    `
-    color.New(color.FgCyan).Println(header)
+// StartProgress initializes and returns a single-line progress bar
+func StartProgress(total int) *pb.ProgressBar {
+    bar := pb.New(total).
+        SetTemplateString("{{bar . }} {{percent . }}").
+        Set(pb.ProgressBarStyle, pb.StyleModern)
+    bar.Start()
+    return bar
 }
 
-// Main function to handle commands using Cobra
 func main() {
     printASCIIHeader()
+    initConfig()
+    rootCmd := initRootCmd()
 
-    // Initialize Viper
-    viper.SetConfigName("config")
-    viper.SetConfigType("json")
-    viper.AddConfigPath(".")
-    viper.AutomaticEnv()
-
-    // Read in existing config or create a new one
-    if err := viper.ReadInConfig(); err != nil {
-        if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-            // Config file not found; create it
-            err = viper.SafeWriteConfig()
-            if err != nil {
-                color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
-                return
-            }
-            color.New(color.FgYellow).Println("Config file created: config.json")
-        } else {
-            color.New(color.FgRed).Printf("Error reading config file: %s\n", err)
-            return
-        }
-    }
-
-    var token string
-
-    rootCmd := &cobra.Command{
-        Use:   "ghm",
-        Short: "GitHub Management CLI",
-        PersistentPreRun: func(cmd *cobra.Command, args []string) {
-            // Ensure GitHub token is available
-            token = viper.GetString("github_token")
-            if token == "" {
-                color.New(color.FgBlue).Println("Enter your GitHub token:")
-                byteToken, err := term.ReadPassword(int(syscall.Stdin))
-                fmt.Println()
-                if err != nil {
-                    color.New(color.FgRed).Printf("Error reading token: %s\n", err)
-                    os.Exit(1)
-                }
-                token = strings.TrimSpace(string(byteToken))
-                viper.Set("github_token", token)
-                err = viper.WriteConfig()
-                if err != nil {
-                    if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-                        err = viper.SafeWriteConfig()
-                        if err != nil {
-                            color.New(color.FgRed).Printf("Error creating config file: %s\n", err)
-                            os.Exit(1)
-                        }
-                    } else {
-                        color.New(color.FgRed).Printf("Error writing config: %s\n", err)
-                        os.Exit(1)
-                    }
-                }
-            }
-        },
-    }
-
-    // Add Secret Command
-    var repo string
-    var secretName string
-    var secretValue string
-
-    addSecretCmd := &cobra.Command{
-        Use:   "add-secret",
-        Short: "Add a secret to a GitHub repository",
-        Run: func(cmd *cobra.Command, args []string) {
-            if repo == "" {
-                color.New(color.FgRed).Println("Repository must be specified.")
-                return
-            }
-            if !strings.Contains(repo, "/") {
-                color.New(color.FgRed).Println("Invalid repository format. Please use 'owner/repo'.")
-                return
-            }
-            if secretName == "" {
-                color.New(color.FgRed).Println("Secret name must be provided.")
-                return
-            }
-            if secretValue == "" {
-                // Prompt for secret value if not provided
-                color.New(color.FgBlue).Println("Enter the secret value:")
-                reader := bufio.NewReader(os.Stdin)
-                secretValueInput, _ := reader.ReadString('\n')
-                secretValue = strings.TrimSpace(secretValueInput)
-            }
-            strategy := &AddSecretStrategy{
-                Token:       token,
-                Repo:        repo,
-                SecretName:  secretName,
-                SecretValue: secretValue,
-            }
-            strategy.Execute()
-        },
-    }
-    addSecretCmd.Flags().StringVarP(&repo, "repo", "r", "", "Repository name in 'owner/repo' format")
-    addSecretCmd.Flags().StringVarP(&secretName, "name", "n", "", "Name of the secret")
-    addSecretCmd.Flags().StringVarP(&secretValue, "value", "v", "", "Value of the secret")
-
-    // Add Workflow Command
-    var workflowName string
-    var workflowContent string
-    var workflowFile string
-
-    addWorkflowCmd := &cobra.Command{
-        Use:   "add-workflow",
-        Short: "Add a GitHub Actions workflow to a repository",
-        Run: func(cmd *cobra.Command, args []string) {
-            if repo == "" {
-                color.New(color.FgRed).Println("Repository must be specified.")
-                return
-            }
-            if !strings.Contains(repo, "/") {
-                color.New(color.FgRed).Println("Invalid repository format. Please use 'owner/repo'.")
-                return
-            }
-            if workflowName == "" {
-                color.New(color.FgRed).Println("Workflow name must be provided.")
-                return
-            }
-            if workflowContent == "" && workflowFile == "" {
-                color.New(color.FgRed).Println("Either workflow content or workflow file must be provided.")
-                return
-            }
-            if workflowContent == "" && workflowFile != "" {
-                // Read content from the provided file
-                contentBytes, err := os.ReadFile(workflowFile)
-                if err != nil {
-                    color.New(color.FgRed).Printf("Error reading workflow file '%s': %s\n", workflowFile, err)
-                    return
-                }
-                workflowContent = string(contentBytes)
-            }
-            strategy := &AddWorkflowStrategy{
-                Token:        token,
-                Repo:         repo,
-                WorkflowPath: workflowName,
-                Content:      workflowContent,
-            }
-            strategy.Execute()
-        },
-    }
-    addWorkflowCmd.Flags().StringVarP(&repo, "repo", "r", "", "Repository name in 'owner/repo' format")
-    addWorkflowCmd.Flags().StringVarP(&workflowName, "name", "n", "", "Name of the workflow file (e.g., ci.yml)")
-    addWorkflowCmd.Flags().StringVarP(&workflowContent, "content", "c", "", "Content of the workflow file")
-    addWorkflowCmd.Flags().StringVarP(&workflowFile, "file", "f", "", "Path to the workflow file to read content from")
-
-    // Store Config Command
-    var configKey string
-    var configValue string
-
-    storeConfigCmd := &cobra.Command{
-        Use:   "store-config",
-        Short: "Store a configuration key-value pair",
-        Run: func(cmd *cobra.Command, args []string) {
-            if configKey == "" {
-                color.New(color.FgRed).Println("Configuration key must be provided.")
-                return
-            }
-            if configValue == "" {
-                color.New(color.FgRed).Println("Configuration value must be provided.")
-                return
-            }
-            strategy := &StoreConfigStrategy{
-                ConfigKey:   configKey,
-                ConfigValue: configValue,
-            }
-            strategy.Execute()
-        },
-    }
-    storeConfigCmd.Flags().StringVarP(&configKey, "key", "k", "", "Configuration key")
-    storeConfigCmd.Flags().StringVarP(&configValue, "value", "v", "", "Configuration value")
-
-    // Add subcommands to root command
-    rootCmd.AddCommand(addSecretCmd)
-    rootCmd.AddCommand(addWorkflowCmd)
-    rootCmd.AddCommand(storeConfigCmd)
-
-    // Execute the root command
     if err := rootCmd.Execute(); err != nil {
-        color.New(color.FgRed).Printf("Error: %s\n", err)
+        red("Error:", err)
         os.Exit(1)
     }
 }
