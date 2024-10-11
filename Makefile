@@ -22,9 +22,9 @@ test:
 clean:
 	$(GO) clean
 	rm -f $(BINARY_NAME)
-    rm -f ghm
-    rm -f secrets.json
-    rm -f config.json
+	rm -f ghm
+	rm -f secrets.json
+	rm -f config.json
 
 run:
 	$(GO) run main.go
