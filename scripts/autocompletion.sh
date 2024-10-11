@@ -1,6 +1,6 @@
 #!/bin/bash
 
-_ghmanager_completions() {
+_ghm_completions() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -9,7 +9,7 @@ _ghmanager_completions() {
 
     case "${prev}" in
         secret)
-            local secret_opts="add list"
+            local secret_opts="add remove list"
             COMPREPLY=( $(compgen -W "${secret_opts}" -- "${cur}") )
             return 0
             ;;
@@ -30,4 +30,4 @@ _ghmanager_completions() {
     esac
 }
 
-complete -F _ghmanager_completions ghmanager
+complete -F _ghm_completions ghm
