@@ -14,12 +14,12 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: '1.18' # Specify your required Go version
+        go-version: '1.18'  # Specify your required Go version
 
     - name: Install dependencies
       run: go mod tidy
@@ -31,7 +31,7 @@ jobs:
       run: go test ./...
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3  # Update to v3
       with:
         name: ghm-binary
         path: ./ghm
@@ -43,7 +43,7 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Set up Go
       uses: actions/setup-go@v3
