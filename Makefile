@@ -14,7 +14,7 @@ all: build
 
 build:
 	$(GO) mod tidy
-	$(GO) build -o $(BINARY_NAME) main.go
+	$(GO) build -o $(BINARY_NAME) 
 	
 test:
 	$(GO) test -v ./...
