@@ -92,7 +92,7 @@ func initAddSecretCmd(logger *logrus.Logger) *cobra.Command {
 				secretValue = strings.TrimSpace(string(byteSecret))
 			}
 
-			ghm := NewGHM(viper.GetString("github_token"), logger)
+			ghm := NewGHM(viper.GetString("github_token"))
 			return ghm.AddSecret(context.Background(), repo, secretName, secretValue)
 		},
 	}
@@ -137,7 +137,7 @@ func initAddWorkflowCmd(logger *logrus.Logger) *cobra.Command {
 				workflowContent = string(contentBytes)
 			}
 
-			ghm := NewGHM(viper.GetString("github_token"), logger)
+			ghm := NewGHM(viper.GetString("github_token"))
 			return ghm.AddWorkflow(context.Background(), repo, workflowName, workflowContent)
 		},
 	}
@@ -166,7 +166,7 @@ func initStoreConfigCmd(logger *logrus.Logger) *cobra.Command {
 				logger.Error("Configuration value must be provided.")
 				return fmt.Errorf("configuration value not provided")
 			}
-			ghm := NewGHM(viper.GetString("github_token"), logger)
+			ghm := NewGHM(viper.GetString("github_token"))
 			return ghm.StoreConfig(context.Background(), configKey, configValue)
 		},
 	}
@@ -224,7 +224,7 @@ func initAddSavedSecretCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected secrets to the target repository
-			ghm := NewGHM(viper.GetString("github_token"), logger)
+			ghm := NewGHM(viper.GetString("github_token"))
 			err = ghm.AddSecretsToRepo(context.Background(), targetRepo, selectedSecrets, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding secrets to repository: %v", err)
@@ -294,7 +294,7 @@ func initAddSavedWorkflowCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected workflows to the target repository
-			ghm := NewGHM(viper.GetString("github_token"), logger)
+			ghm := NewGHM(viper.GetString("github_token"))
 			err = ghm.AddWorkflowsToRepo(context.Background(), targetRepo, selectedWorkflows, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding workflows to repository: %v", err)
