@@ -8,21 +8,12 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/go-github/v50/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/nacl/box"
-	"golang.org/x/oauth2"
 )
 
 // Encryptor interface abstracts the encryption functionality
@@ -144,6 +135,8 @@ func (g *GHMImpl) AddWorkflow(ctx context.Context, repo, workflowName, content s
 	}
 	return strategy.Execute()
 }
+
+// Implement other methods like StoreConfig, AddSecretsToRepo, AddWorkflowsToRepo as needed.
 
 // StoreConfig stores a configuration key-value pair
 func (g *GHMImpl) StoreConfig(ctx context.Context, key, value string) error {
