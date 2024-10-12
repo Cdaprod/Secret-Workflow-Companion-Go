@@ -10,22 +10,18 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"path/filepath"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	git_http "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/google/go-github/v50/github"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/oauth2"
-	"net/http"
 )
 
 // Encryptor interface abstracts the encryption functionality
@@ -325,7 +321,7 @@ func (a *AddWorkflowStrategy) Execute() error {
 	repoURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 
 	// Initialize authentication for git operations
-	auth := &http.BasicAuth{
+	auth := &git_http.BasicAuth{
 		Username: "ghm",   // Can be anything except an empty string
 		Password: a.Token, // GitHub Personal Access Token
 	}
@@ -381,7 +377,7 @@ func (a *AddWorkflowStrategy) Execute() error {
 	// Commit the changes
 	commitMsg := "Add GitHub Actions workflow"
 	commit, err := worktree.Commit(commitMsg, &git.CommitOptions{
-		Author: &object.Signature{
+		Author: &git.Signature{
 			Name:  "ghm",
 			Email: "ghm@example.com",
 			When:  time.Now(),

@@ -3,7 +3,7 @@ package main
 
 import (
 	"context"
-	"encoding/json" // Added to resolve undefined: json
+	"encoding/json" 
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -35,6 +35,7 @@ func initRootCmd(logger *logrus.Logger) *cobra.Command {
 				viper.Set("github_token", token)
 				if err := viper.WriteConfig(); err != nil {
 					if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+						fmt.Println("Config file doesn't exist; creating one.")
 						if err := viper.SafeWriteConfig(); err != nil {
 							logger.Fatalf("Error creating config file: %v", err)
 						}
@@ -450,8 +451,8 @@ func promptSelectItems(label string, items []string) ([]string, error) {
 		}
 
 		if strings.ToLower(confirm) == "y" || confirm == "" {
-			selectedItems = append(selectedItems, items[result])
-			fmt.Printf("Added '%s' to the selection.\n", items[result])
+			selectedItems = append(selectedItems, result)
+			fmt.Printf("Added '%s' to the selection.\n", result)
 		}
 
 		// Ask if the user wants to continue selecting
