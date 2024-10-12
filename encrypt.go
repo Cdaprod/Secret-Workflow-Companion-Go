@@ -4,14 +4,12 @@ package main
 
 import (
 	"crypto/rand"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
 
 	"github.com/google/go-github/v50/github"
+	"golang.org/x/crypto/nacl/box"
 )
 
 // Encryptor interface abstracts the encryption functionality
@@ -29,37 +27,28 @@ func (e *EncryptorImpl) Encrypt(secretValue string, publicKey *github.PublicKey)
 	}
 
 	// Decode the public key from base64
-	keyBytes, err := base64.StdEncoding.DecodeString(*publicKey.Key)
+	decodedPublicKey, err := base64.StdEncoding.DecodeString(*publicKey.Key)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode public key: %w", err)
 	}
 
-	// Parse the public key (Assuming it's in PKIX format)
-	parsedPubKey, err := x509.ParsePKIXPublicKey(keyBytes)
-	if err != nil {
-		// Try parsing as PKCS1
-		rsaPubKey, parseErr := x509.ParsePKCS1PublicKey(keyBytes)
-		if parseErr != nil {
-			return "", fmt.Errorf("failed to parse RSA public key: %w", err)
-		}
-		parsedPubKey = rsaPubKey
+	// Check that the public key is 32 bytes (256 bits)
+	if len(decodedPublicKey) != 32 {
+		return "", fmt.Errorf("invalid public key length: expected 32 bytes, got %d bytes", len(decodedPublicKey))
 	}
 
-	rsaPubKey, ok := parsedPubKey.(*rsa.PublicKey)
-	if !ok {
-		return "", errors.New("public key is not an RSA public key")
-	}
+	// Convert the public key into [32]byte format
+	var publicKeyBytes [32]byte
+	copy(publicKeyBytes[:], decodedPublicKey)
 
-	// Encrypt the secret value using RSA-OAEP with SHA-256
-	label := []byte("") // No label
-	hash := sha256.New()
-	ciphertext, err := rsa.EncryptOAEP(hash, rand.Reader, rsaPubKey, []byte(secretValue), label)
+	// Encrypt the secret value using NaCl's box.SealAnonymous
+	encryptedBytes, err := box.SealAnonymous(nil, []byte(secretValue), &publicKeyBytes, rand.Reader)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt secret: %w", err)
 	}
 
-	// Encode the ciphertext to base64
-	encryptedValue := base64.StdEncoding.EncodeToString(ciphertext)
+	// Encode the encrypted secret to base64
+	encryptedValue := base64.StdEncoding.EncodeToString(encryptedBytes)
 
 	return encryptedValue, nil
 }
