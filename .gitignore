@@ -1,0 +1,25 @@
+# Binaries
+ghm
+ghm.exe
+
+# Configuration files
+config.json
+
+# Local secrets
+secrets.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/

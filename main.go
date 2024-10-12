@@ -252,6 +252,7 @@ func (s *StoreConfigStrategy) Execute() error {
 }
 
 // Initialize Add Secret Command
+// Initialize Add Secret Command
 func initAddSecretCmd(token *string) *cobra.Command {
 	var repo, secretName, secretValue string
 
@@ -273,13 +274,13 @@ func initAddSecretCmd(token *string) *cobra.Command {
 			}
 			if secretValue == "" {
 				fmt.Fprint(os.Stdout, blue("Enter the secret value: "))
-				reader := bufio.NewReader(os.Stdin)
-				secretValueInput, err := reader.ReadString('\n')
+				byteSecret, err := term.ReadPassword(int(os.Stdin.Fd()))
+				fmt.Println() // Move to the next line after input
 				if err != nil {
 					fmt.Fprintln(os.Stderr, red("Error reading secret value:"), err)
 					return err
 				}
-				secretValue = strings.TrimSpace(secretValueInput)
+				secretValue = strings.TrimSpace(string(byteSecret))
 			}
 			strategy := &AddSecretStrategy{
 				Token:       *token,
@@ -459,9 +460,13 @@ func initRootCmd() *cobra.Command {
 			// Ensure GitHub token is available
 			token = viper.GetString("github_token")
 			if token == "" {
+				// Attempt to read from environment variable
+				token = os.Getenv("GITHUB_TOKEN")
+			}
+			if token == "" {
 				fmt.Fprint(os.Stdout, blue("Enter your GitHub token: "))
-				reader := bufio.NewReader(os.Stdin)
-				byteToken, err := reader.ReadString('\n')
+				byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
+				fmt.Println() // Move to the next line after input
 				if err != nil {
 					fmt.Fprintln(os.Stderr, red("Error reading token:"), err)
 					os.Exit(1)
