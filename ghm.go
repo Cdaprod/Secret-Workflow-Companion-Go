@@ -1,4 +1,7 @@
 // ghm.go
+
+package main
+
 import (
 	"context"
 	"crypto/rand"
