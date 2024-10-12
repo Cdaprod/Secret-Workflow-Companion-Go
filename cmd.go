@@ -427,7 +427,7 @@ func promptSelectItems(label string, items []string) ([]string, error) {
 			Size:  10,
 		}
 
-		index, result, err := prompt.Run()
+		result, err := prompt.Run()
 		if err != nil {
 			if err == promptui.ErrInterrupt || err == promptui.ErrEOF {
 				return selectedItems, nil
@@ -437,7 +437,7 @@ func promptSelectItems(label string, items []string) ([]string, error) {
 
 		// Confirm selection
 		confirmPrompt := promptui.Prompt{
-			Label:     fmt.Sprintf("Add '%s'?", result),
+			Label:     fmt.Sprintf("Add '%s'?", items[result]),
 			IsConfirm: true,
 		}
 
@@ -450,8 +450,8 @@ func promptSelectItems(label string, items []string) ([]string, error) {
 		}
 
 		if strings.ToLower(confirm) == "y" || confirm == "" {
-			selectedItems = append(selectedItems, result)
-			fmt.Printf("Added '%s' to the selection.\n", result)
+			selectedItems = append(selectedItems, items[result])
+			fmt.Printf("Added '%s' to the selection.\n", items[result])
 		}
 
 		// Ask if the user wants to continue selecting

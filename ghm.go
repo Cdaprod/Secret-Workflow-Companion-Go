@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/oauth2"
+	"net/http"
 )
 
 // Encryptor interface abstracts the encryption functionality
@@ -227,6 +227,219 @@ func (g *GHMImpl) AddWorkflowsToRepo(ctx context.Context, targetRepo string, wor
 	return nil
 }
 
+// AddSecretStrategy defines the parameters for adding a secret
+type AddSecretStrategy struct {
+	Token       string
+	Repo        string // Format: "owner/repo"
+	SecretName  string
+	SecretValue string
+	Encryptor   Encryptor
+	Logger      *logrus.Logger
+}
+
+// Execute adds a secret to a GitHub repository
+func (a *AddSecretStrategy) Execute() error {
+	ctx := context.Background()
+
+	// Initialize GitHub client with OAuth2 token
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: a.Token},
+	)
+	tc := oauth2.NewClient(ctx, ts)
+	client := github.NewClient(tc)
+
+	// Split repo into owner and repo
+	parts := strings.Split(a.Repo, "/")
+	if len(parts) != 2 {
+		a.Logger.Error("Invalid repository format. Use 'owner/repo'.")
+		return fmt.Errorf("invalid repository format")
+	}
+	owner, repo := parts[0], parts[1]
+
+	// Fetch repository public key
+	publicKey, _, err := client.Actions.GetRepoPublicKey(ctx, owner, repo)
+	if err != nil {
+		a.Logger.Errorf("Error fetching repository public key: %v", err)
+		return err
+	}
+
+	// Ensure publicKey.KeyID is not nil
+	if publicKey.KeyID == nil {
+		a.Logger.Error("Public Key ID is nil.")
+		return fmt.Errorf("public key ID is nil")
+	}
+
+	// Encrypt the secret value
+	encryptedValue, err := a.Encryptor.Encrypt(a.SecretValue, publicKey)
+	if err != nil {
+		a.Logger.Errorf("Error encrypting secret: %v", err)
+		return err
+	}
+
+	// Create the encrypted secret struct
+	encryptedSecret := &github.EncryptedSecret{
+		Name:           a.SecretName,
+		KeyID:          *publicKey.KeyID,
+		EncryptedValue: encryptedValue,
+	}
+
+	// Create or update the secret
+	_, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, encryptedSecret)
+	if err != nil {
+		a.Logger.Errorf("Error setting repository secret: %v", err)
+		return err
+	}
+
+	a.Logger.Infof("Secret '%s' added to repository '%s' successfully.", a.SecretName, a.Repo)
+	a.Logger.Infof("Secret '%s' saved locally.", a.SecretName)
+
+	// Save secret locally for persistence
+	saveSecretLocally(a.SecretName, a.SecretValue, a.Logger)
+
+	return nil
+}
+
+// AddWorkflowStrategy defines the parameters for adding a workflow
+type AddWorkflowStrategy struct {
+	Token        string
+	Repo         string // Format: "owner/repo"
+	WorkflowName string // e.g., "ci.yml"
+	Content      string // YAML content of the workflow
+	Logger       *logrus.Logger
+}
+
+// Execute adds a GitHub Actions workflow to a repository
+func (a *AddWorkflowStrategy) Execute() error {
+	// Split repo into owner and repo
+	parts := strings.Split(a.Repo, "/")
+	if len(parts) != 2 {
+		a.Logger.Error("Invalid repository format. Use 'owner/repo'.")
+		return fmt.Errorf("invalid repository format")
+	}
+	owner, repo := parts[0], parts[1]
+
+	// GitHub repository URL
+	repoURL := fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+
+	// Initialize authentication for git operations
+	auth := &http.BasicAuth{
+		Username: "ghm",   // Can be anything except an empty string
+		Password: a.Token, // GitHub Personal Access Token
+	}
+
+	// Clone the repository into a temporary directory
+	tmpDir, err := ioutil.TempDir("", "ghm-repo-")
+	if err != nil {
+		a.Logger.Errorf("Error creating temporary directory: %v", err)
+		return err
+	}
+	defer os.RemoveAll(tmpDir) // Clean up after cloning
+
+	a.Logger.Info("Cloning repository into temporary directory...")
+
+	repoGit, err := git.PlainClone(tmpDir, false, &git.CloneOptions{
+		URL:      repoURL,
+		Progress: os.Stdout,
+		Auth:     auth,
+	})
+	if err != nil {
+		a.Logger.Errorf("Error cloning repository: %v", err)
+		return err
+	}
+
+	worktree, err := repoGit.Worktree()
+	if err != nil {
+		a.Logger.Errorf("Error accessing worktree: %v", err)
+		return err
+	}
+
+	// Create the workflow file in .github/workflows/
+	workflowDir := filepath.Join(tmpDir, ".github", "workflows")
+	err = os.MkdirAll(workflowDir, os.ModePerm)
+	if err != nil {
+		a.Logger.Errorf("Error creating workflow directory: %v", err)
+		return err
+	}
+
+	workflowPath := filepath.Join(workflowDir, a.WorkflowName)
+	err = ioutil.WriteFile(workflowPath, []byte(a.Content), 0644)
+	if err != nil {
+		a.Logger.Errorf("Error writing workflow file: %v", err)
+		return err
+	}
+
+	// Stage the workflow file
+	_, err = worktree.Add(filepath.Join(".github", "workflows", a.WorkflowName))
+	if err != nil {
+		a.Logger.Errorf("Error adding workflow file to git: %v", err)
+		return err
+	}
+
+	// Commit the changes
+	commitMsg := "Add GitHub Actions workflow"
+	commit, err := worktree.Commit(commitMsg, &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "ghm",
+			Email: "ghm@example.com",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		a.Logger.Errorf("Error committing changes: %v", err)
+		return err
+	}
+
+	obj, err := repoGit.CommitObject(commit)
+	if err != nil {
+		a.Logger.Errorf("Error getting commit object: %v", err)
+		return err
+	}
+
+	a.Logger.Infof("Committed changes: %s", obj.Hash)
+
+	// Push the commit to GitHub
+	a.Logger.Info("Pushing changes to GitHub...")
+	err = repoGit.Push(&git.PushOptions{
+		Auth: auth,
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		a.Logger.Errorf("Error pushing changes: %v", err)
+		return err
+	}
+
+	a.Logger.Infof("Workflow '%s' added to repository '%s' successfully.", a.WorkflowName, a.Repo)
+
+	return nil
+}
+
+// StoreConfigStrategy defines the parameters for storing a config key-value pair
+type StoreConfigStrategy struct {
+	ConfigKey   string
+	ConfigValue string
+	Logger      *logrus.Logger
+}
+
+// Execute stores a configuration key-value pair
+func (s *StoreConfigStrategy) Execute() error {
+	viper.Set(s.ConfigKey, s.ConfigValue)
+	err := viper.WriteConfig()
+	if err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file doesn't exist, create it
+			err = viper.SafeWriteConfig()
+			if err != nil {
+				s.Logger.Errorf("Error creating config file: %v", err)
+				return err
+			}
+		} else {
+			s.Logger.Errorf("Error writing config: %v", err)
+			return err
+		}
+	}
+	s.Logger.Infof("Configuration '%s' saved successfully.", s.ConfigKey)
+	return nil
+}
+
 // ReposConfig holds the mapping between repositories and their added secrets/workflows
 type ReposConfig struct {
 	Repositories map[string]RepoConfig `json:"repositories"`
@@ -365,4 +578,45 @@ func (g *GHMImpl) getWorkflowContent(workflowName string) (string, error) {
 	}
 
 	return workflowContent, nil
+}
+
+// saveSecretLocally saves the secret in a local JSON file for persistence
+func saveSecretLocally(secretName, secretValue string, logger *logrus.Logger) {
+	secretsFile := "secrets.json"
+	secrets := make(map[string]string)
+
+	// Check if secrets.json exists
+	if _, err := os.Stat(secretsFile); err == nil {
+		file, err := os.Open(secretsFile)
+		if err == nil {
+			defer file.Close()
+			jsonDecoder := json.NewDecoder(file)
+			err = jsonDecoder.Decode(&secrets)
+			if err != nil {
+				logger.Errorf("Error decoding secrets file: %v", err)
+				return
+			}
+		} else {
+			logger.Errorf("Error opening secrets file: %v", err)
+			return
+		}
+	}
+
+	secrets[secretName] = secretValue
+
+	file, err := os.Create(secretsFile)
+	if err != nil {
+		logger.Errorf("Error saving secret locally: %v", err)
+		return
+	}
+	defer file.Close()
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(secrets)
+	if err != nil {
+		logger.Errorf("Error encoding secrets: %v", err)
+		return
+	}
+
+	logger.Infof("Secret '%s' saved locally.", secretName)
 }

@@ -1,13 +1,15 @@
+// main.go
 package main
 
 import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
 )
 
 func main() {
-	// Initialize Logrus logger
+	// Initialize logger
 	logger := logrus.New()
 	logger.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
@@ -15,19 +17,44 @@ func main() {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(logrus.InfoLevel)
 
-	// Conditionally print the ASCII header
-	if os.Getenv("TESTING") != "1" {
-		printASCIIHeader(logger)
-	}
+	// Initialize configuration
+	initConfig()
 
-	// Initialize Viper config
-	initConfig(logger)
+	// Print ASCII Header
+	printASCIIHeader()
 
-	// Initialize and execute the CLI root command
+	// Initialize root command
 	rootCmd := initRootCmd(logger)
 
+	// Execute root command
 	if err := rootCmd.Execute(); err != nil {
-		logger.Errorf("Error: %v", err)
-		os.Exit(1)
+		logger.Fatalf("Error executing command: %v", err)
+	}
+}
+
+// printASCIIHeader prints a colorful ASCII header
+func printASCIIHeader() {
+	header := `
+ _____ _    _  __  __ 
+/ ____| |  (_) |  \/  |
+| |    | | ___| | \  / |
+| |    | |/ / | | |\/| |
+| |____|   <| | | |  | |
+ \_____|_|\_\_|_|_|  |_|`
+	fmt.Println(header)
+}
+
+// initConfig initializes the configuration with viper
+func initConfig() {
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			fmt.Println("Config file not found; using defaults")
+		} else {
+			fmt.Printf("Error reading config file: %s\n", err)
+		}
 	}
 }
