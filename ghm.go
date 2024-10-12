@@ -1,6 +1,4 @@
 // ghm.go
-package main
-
 import (
 	"context"
 	"crypto/rand"
@@ -17,13 +15,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-git/v5" // Make sure this is included for git operations
+	"github.com/go-git/go-git/v5" // For Git operations
 	git_http "github.com/go-git/go-git/v5/plumbing/transport/http" // For HTTP transport
+	"github.com/go-git/go-git/v5/plumbing/object" // Required for object signatures
 	"github.com/google/go-github/v50/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/oauth2"
-	"github.com/spf13/viper" // Ensure viper is imported
+	"github.com/spf13/viper" // Configuration management
 )
 
 // Encryptor interface abstracts the encryption functionality
