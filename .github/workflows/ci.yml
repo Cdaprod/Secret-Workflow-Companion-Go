@@ -48,12 +48,12 @@ jobs:
           name: ghm-binary
           path: ./ghm
 
-      - name: Commit built binary back to the repository
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add ghm
-          git commit -m "Add built binary ghm"
-          git push origin main
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      # - name: Commit built binary back to the repository
+      #   run: |
+      #     git config user.name "GitHub Actions"
+      #     git config user.email "actions@github.com"
+      #     git add .
+      #     git commit -m "Add built binary ghm"
+      #     git push origin main
+      #   env:
+      #     GH_TOKEN: ${{ secrets.GH_TOKEN }}
