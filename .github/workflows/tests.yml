@@ -1,4 +1,4 @@
-name: Go Build
+name: Go Tests
 
 on:
   push:
@@ -39,8 +39,8 @@ jobs:
       - name: Build binary
         run: go build -v -o ghm
 
-      # - name: Run tests
-      #   run: go test ./...
+      - name: Run tests
+        run: go test ./...
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
