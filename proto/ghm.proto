@@ -1,0 +1,45 @@
+// ghm.proto
+
+//protoc --go_out=. --go-grpc_out=. \
+//       --go_opt=paths=source_relative \
+//       --go-grpc_opt=paths=source_relative \
+//       proto/ghm.proto
+
+syntax = "proto3";
+
+package ghm;
+
+option go_package = "github.com/yourusername/yourproject/ghm;ghm";
+
+// Message definitions
+message Secret {
+  string name = 1;
+  string value = 2;
+}
+
+message AddSecretRequest {
+  string repo = 1;
+  Secret secret = 2;
+}
+
+message AddSecretResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message AddWorkflowRequest {
+  string repo = 1;
+  string workflow_name = 2;
+  string content = 3;
+}
+
+message AddWorkflowResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Service definition
+service GHMService {
+  rpc AddSecret(AddSecretRequest) returns (AddSecretResponse);
+  rpc AddWorkflow(AddWorkflowRequest) returns (AddWorkflowResponse);
+}
