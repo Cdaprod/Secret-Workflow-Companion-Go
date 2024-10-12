@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-git/go-git/v5" // For Git operations
 	git_http "github.com/go-git/go-git/v5/plumbing/transport/http" // For HTTP transport
-	//"github.com/go-git/go-git/v5/plumbing/object" // Required for object signatures
+	"github.com/go-git/go-git/v5/plumbing/object" // Required for object signatures
 	"github.com/google/go-github/v50/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/nacl/box"
@@ -381,7 +381,7 @@ func (a *AddWorkflowStrategy) Execute() error {
 	// Commit the changes
 	commitMsg := "Add GitHub Actions workflow"
 	commit, err := worktree.Commit(commitMsg, &git.CommitOptions{
-		Author: &git.Signature{
+		Author: &object.Signature{
 			Name:  "ghm",
 			Email: "ghm@example.com",
 			When:  time.Now(),
