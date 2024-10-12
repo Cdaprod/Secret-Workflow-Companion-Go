@@ -34,16 +34,26 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Install dependencies
-        run: go mod tidy  # This command should be executed before build
+        run: go mod tidy
 
       - name: Build binary
-        run: go build -o ghm main.go
+        run: go build -v -o ghm
 
-      #- name: Run tests
-        #run: go test ./...
+      - name: Run tests
+        run: go test ./...
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ghm-binary
           path: ./ghm
+
+      - name: Commit built binary back to the repository
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add ghm
+          git commit -m "Add built binary ghm"
+          git push origin main
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
