@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,7 +19,9 @@ import (
 	"github.com/google/go-github/v50/github"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/oauth2"
+	"golang.org/x/term"
 )
 
 // Define global color functions for consistent terminal output
@@ -125,8 +126,7 @@ func (a *AddSecretStrategy) Execute() error {
 
 // Execute adds a GitHub Actions workflow to a repository
 func (a *AddWorkflowStrategy) Execute() error {
-	// Removed unused ctx variable
-	// ctx := context.Background()
+	ctx := context.Background()
 
 	// Split repo into owner and repo
 	parts := strings.Split(a.Repo, "/")
@@ -251,7 +251,6 @@ func (s *StoreConfigStrategy) Execute() error {
 	return nil
 }
 
-// Initialize Add Secret Command
 // Initialize Add Secret Command
 func initAddSecretCmd(token *string) *cobra.Command {
 	var repo, secretName, secretValue string
@@ -459,10 +458,6 @@ func initRootCmd() *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Ensure GitHub token is available
 			token = viper.GetString("github_token")
-			if token == "" {
-				// Attempt to read from environment variable
-				token = os.Getenv("GITHUB_TOKEN")
-			}
 			if token == "" {
 				fmt.Fprint(os.Stdout, blue("Enter your GitHub token: "))
 				byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
