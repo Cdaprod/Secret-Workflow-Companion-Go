@@ -1,8 +1,8 @@
+// cmd.go
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -54,9 +54,9 @@ func initRootCmd(logger *logrus.Logger) *cobra.Command {
 	rootCmd.AddCommand(initAddSecretCmd(logger))
 	rootCmd.AddCommand(initAddWorkflowCmd(logger))
 	rootCmd.AddCommand(initStoreConfigCmd(logger))
-	rootCmd.AddCommand(initAddSavedSecretCmd(logger))     // New Command
-	rootCmd.AddCommand(initAddSavedWorkflowCmd(logger))   // New Command
-	rootCmd.AddCommand(initListReposCmd(logger))          // New Command
+	rootCmd.AddCommand(initAddSavedSecretCmd(logger))    // New Command
+	rootCmd.AddCommand(initAddSavedWorkflowCmd(logger))  // New Command
+	rootCmd.AddCommand(initListReposCmd(logger))         // New Command
 
 	return rootCmd
 }
@@ -224,6 +224,7 @@ func initAddSavedSecretCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected secrets to the target repository
+			ghm := NewGHM(viper.GetString("github_token"), logger)
 			err = ghm.AddSecretsToRepo(context.Background(), targetRepo, selectedSecrets, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding secrets to repository: %v", err)
@@ -293,6 +294,7 @@ func initAddSavedWorkflowCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected workflows to the target repository
+			ghm := NewGHM(viper.GetString("github_token"), logger)
 			err = ghm.AddWorkflowsToRepo(context.Background(), targetRepo, selectedWorkflows, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding workflows to repository: %v", err)
@@ -425,7 +427,7 @@ func promptSelectItems(label string, items []string) ([]string, error) {
 
 	var selectedItems []string
 	for {
-		index, result, err := prompt.Run()
+		_, result, err := prompt.Run()
 		if err != nil {
 			if err == promptui.ErrInterrupt || err == promptui.ErrEOF {
 				return selectedItems, nil
