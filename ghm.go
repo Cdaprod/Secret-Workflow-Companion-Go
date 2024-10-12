@@ -20,7 +20,7 @@ import (
 
 	"github.com/go-git/go-git/v5" // For Git operations
 	git_http "github.com/go-git/go-git/v5/plumbing/transport/http" // For HTTP transport
-	"github.com/go-git/go-git/v5/plumbing/object" // Required for object signatures
+	//"github.com/go-git/go-git/v5/plumbing/object" // Required for object signatures
 	"github.com/google/go-github/v50/github"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/nacl/box"
