@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json" // Added to resolve undefined: json
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,14 +18,12 @@ import (
 
 // Initialize Root Command
 func initRootCmd(logger *logrus.Logger) *cobra.Command {
-	var token string
-
 	rootCmd := &cobra.Command{
 		Use:   "ghm",
 		Short: "GitHub Management CLI",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Ensure GitHub token is available
-			token = viper.GetString("github_token")
+			token := viper.GetString("github_token")
 			if token == "" {
 				fmt.Print("Enter your GitHub token: ")
 				byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
@@ -54,9 +53,9 @@ func initRootCmd(logger *logrus.Logger) *cobra.Command {
 	rootCmd.AddCommand(initAddSecretCmd(logger))
 	rootCmd.AddCommand(initAddWorkflowCmd(logger))
 	rootCmd.AddCommand(initStoreConfigCmd(logger))
-	rootCmd.AddCommand(initAddSavedSecretCmd(logger))    // New Command
-	rootCmd.AddCommand(initAddSavedWorkflowCmd(logger))  // New Command
-	rootCmd.AddCommand(initListReposCmd(logger))         // New Command
+	rootCmd.AddCommand(initAddSavedSecretCmd(logger))
+	rootCmd.AddCommand(initAddSavedWorkflowCmd(logger))
+	rootCmd.AddCommand(initListReposCmd(logger))
 
 	return rootCmd
 }
@@ -92,7 +91,7 @@ func initAddSecretCmd(logger *logrus.Logger) *cobra.Command {
 				secretValue = strings.TrimSpace(string(byteSecret))
 			}
 
-			ghm := NewGHM(viper.GetString("github_token"))
+			ghm := NewGHM(viper.GetString("github_token"), logger) // Pass both arguments
 			return ghm.AddSecret(context.Background(), repo, secretName, secretValue)
 		},
 	}
@@ -137,7 +136,7 @@ func initAddWorkflowCmd(logger *logrus.Logger) *cobra.Command {
 				workflowContent = string(contentBytes)
 			}
 
-			ghm := NewGHM(viper.GetString("github_token"))
+			ghm := NewGHM(viper.GetString("github_token"), logger) // Pass both arguments
 			return ghm.AddWorkflow(context.Background(), repo, workflowName, workflowContent)
 		},
 	}
@@ -166,7 +165,7 @@ func initStoreConfigCmd(logger *logrus.Logger) *cobra.Command {
 				logger.Error("Configuration value must be provided.")
 				return fmt.Errorf("configuration value not provided")
 			}
-			ghm := NewGHM(viper.GetString("github_token"))
+			ghm := NewGHM(viper.GetString("github_token"), logger) // Pass both arguments
 			return ghm.StoreConfig(context.Background(), configKey, configValue)
 		},
 	}
@@ -224,7 +223,7 @@ func initAddSavedSecretCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected secrets to the target repository
-			ghm := NewGHM(viper.GetString("github_token"))
+			ghm := NewGHM(viper.GetString("github_token"), logger) // Pass both arguments
 			err = ghm.AddSecretsToRepo(context.Background(), targetRepo, selectedSecrets, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding secrets to repository: %v", err)
@@ -294,7 +293,7 @@ func initAddSavedWorkflowCmd(logger *logrus.Logger) *cobra.Command {
 			}
 
 			// Add selected workflows to the target repository
-			ghm := NewGHM(viper.GetString("github_token"))
+			ghm := NewGHM(viper.GetString("github_token"), logger) // Pass both arguments
 			err = ghm.AddWorkflowsToRepo(context.Background(), targetRepo, selectedWorkflows, reposConfig)
 			if err != nil {
 				logger.Errorf("Error adding workflows to repository: %v", err)
@@ -419,15 +418,16 @@ func loadSavedWorkflows(logger *logrus.Logger) ([]string, error) {
 
 // promptSelectItems presents an interactive menu for selection
 func promptSelectItems(label string, items []string) ([]string, error) {
-	prompt := promptui.Select{
-		Label: label,
-		Items: items,
-		Size:  10,
-	}
+	selectedItems := []string{}
 
-	var selectedItems []string
 	for {
-		_, result, err := prompt.Run()
+		prompt := promptui.Select{
+			Label: label,
+			Items: items,
+			Size:  10,
+		}
+
+		index, result, err := prompt.Run()
 		if err != nil {
 			if err == promptui.ErrInterrupt || err == promptui.ErrEOF {
 				return selectedItems, nil
