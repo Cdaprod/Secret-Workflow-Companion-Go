@@ -60,7 +60,7 @@ func printASCIIHeader() {
 │ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝│
 ╚────────────────────────────────────────────────────────────────────────────╝
 `
-	fmt.Println(header)
+	HeaderColor.Println(header)
 }
 
 // initConfig initializes the configuration with viper
