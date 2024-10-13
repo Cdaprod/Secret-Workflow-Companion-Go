@@ -19,38 +19,44 @@ import (
 // Initialize Root Command
 func initRootCmd(logger *logrus.Logger) *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "ghm",
-		Short: "GitHub Management CLI",
+		Use: "ghm",
+		Short: HeaderColor.Sprintf("GitHub Management CLI"), // Correct way to apply color formatting
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Ensure GitHub token is available
 			token := viper.GetString("github_token")
 			if token == "" {
-				fmt.Print("Enter your GitHub token: ")
+				// Prompt user for the token with a colored prompt
+				PromptColor.Print("Enter your GitHub token: ")
 				byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
 				fmt.Println() // Move to the next line after input
 				if err != nil {
+					ErrorColor.Printf("Error reading token: %v\n", err)
 					logger.Fatalf("Error reading token: %v", err)
 				}
 				token = strings.TrimSpace(string(byteToken))
 				viper.Set("github_token", token)
 				if err := viper.WriteConfig(); err != nil {
 					if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-						fmt.Println("Config file doesn't exist; creating one.")
+						WarningColor.Println("Config file doesn't exist; creating one.")
 						if err := viper.SafeWriteConfig(); err != nil {
+							ErrorColor.Printf("Error creating config file: %v\n", err)
 							logger.Fatalf("Error creating config file: %v", err)
 						}
 					} else {
+						ErrorColor.Printf("Error writing config: %v\n", err)
 						logger.Fatalf("Error writing config: %v", err)
 					}
 				}
+				SuccessColor.Println("GitHub token saved successfully.")
 				logger.Info("GitHub token saved successfully.")
 			} else {
+				SuccessColor.Println("GitHub token loaded from config.")
 				logger.Info("GitHub token loaded from config.")
 			}
 		},
 	}
 
-	// Add subcommands
+	// Add subcommands with logger
 	rootCmd.AddCommand(initAddSecretCmd(logger))
 	rootCmd.AddCommand(initAddWorkflowCmd(logger))
 	rootCmd.AddCommand(initStoreConfigCmd(logger))
