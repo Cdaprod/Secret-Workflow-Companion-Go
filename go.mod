@@ -1,4 +1,4 @@
-module github.com/Cdaprod/Secret-Workflow-Companion-Go
+module github.com/Cdaprod/secret-workflow-companion-go
 
 go 1.19
 
