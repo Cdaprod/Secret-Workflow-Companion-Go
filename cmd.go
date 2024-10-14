@@ -21,39 +21,46 @@ func initRootCmd(logger *logrus.Logger) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use: "ghm",
 		Short: HeaderColor.Sprintf("GitHub Management CLI"), // Correct way to apply color formatting
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// Ensure GitHub token is available
-			token := viper.GetString("github_token")
-			if token == "" {
-				// Prompt user for the token with a colored prompt
-				PromptColor.Print("Enter your GitHub token: ")
-				byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
-				fmt.Println() // Move to the next line after input
-				if err != nil {
-					ErrorColor.Printf("Error reading token: %v\n", err)
-					logger.Fatalf("Error reading token: %v", err)
-				}
-				token = strings.TrimSpace(string(byteToken))
-				viper.Set("github_token", token)
-				if err := viper.WriteConfig(); err != nil {
-					if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-						WarningColor.Println("Config file doesn't exist; creating one.")
-						if err := viper.SafeWriteConfig(); err != nil {
-							ErrorColor.Printf("Error creating config file: %v\n", err)
-							logger.Fatalf("Error creating config file: %v", err)
-						}
-					} else {
-						ErrorColor.Printf("Error writing config: %v\n", err)
-						logger.Fatalf("Error writing config: %v", err)
-					}
-				}
-				SuccessColor.Println("GitHub token saved successfully.")
-				logger.Info("GitHub token saved successfully.")
-			} else {
-				SuccessColor.Println("GitHub token loaded from config.")
-				logger.Info("GitHub token loaded from config.")
-			}
-		},
+    PersistentPreRun: func(cmd *cobra.Command, args []string) {
+        // Ensure GitHub token is available
+        token := viper.GetString("github_token")
+        if token == "" {
+            // Prompt user for the token with a colored prompt
+            PromptColor.Print("Enter your GitHub token: ")
+            byteToken, err := term.ReadPassword(int(os.Stdin.Fd()))
+            fmt.Println() // Move to the next line after input
+            if err != nil {
+                ErrorColor.Printf("Error reading token: %v\n", err)
+                logger.Fatalf("Error reading token: %v", err)
+            }
+            token = strings.TrimSpace(string(byteToken))
+            viper.Set("github_token", token)
+    
+            // Attempt to write the config
+            if err := viper.WriteConfigAs("config.yaml"); err != nil { // Explicitly specify the file type
+                if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+                    WarningColor.Println("Config file doesn't exist; creating one.")
+                    viper.SetConfigName("config")
+                    viper.SetConfigType("yaml") // Specify the type here
+                    viper.AddConfigPath(".")    // Specify the path
+    
+                    if err := viper.WriteConfig(); err != nil {
+                        ErrorColor.Printf("Error creating config file: %v\n", err)
+                        logger.Fatalf("Error creating config file: %v", err)
+                    }
+                } else {
+                    ErrorColor.Printf("Error writing config: %v\n", err)
+                    logger.Fatalf("Error writing config: %v", err)
+                }
+            }
+    
+            SuccessColor.Println("GitHub token saved successfully.")
+            logger.Info("GitHub token saved successfully.")
+        } else {
+            SuccessColor.Println("GitHub token loaded from config.")
+            logger.Info("GitHub token loaded from config.")
+        }
+    }
 	}
 
 	// Add subcommands with logger
@@ -362,34 +369,31 @@ func initListReposCmd(logger *logrus.Logger) *cobra.Command {
 }
 
 // loadSavedSecrets loads secrets from secrets.json
-func loadSavedSecrets(logger *logrus.Logger) ([]string, error) {
-	secretsFile := "secrets.json"
-	secrets := make(map[string]string)
+func LoadSecretsConfig(logger *logrus.Logger) (map[string]string, error) {
+    secretsFile := "secrets.json"
+    secrets := make(map[string]string)
 
-	if _, err := os.Stat(secretsFile); os.IsNotExist(err) {
-		return nil, fmt.Errorf("secrets.json does not exist")
-	}
+    if _, err := os.Stat(secretsFile); os.IsNotExist(err) {
+        // Create an empty secrets.json file
+        file, err := os.Create(secretsFile)
+        if err != nil {
+            logger.Errorf("Error creating secrets.json: %v", err)
+            return nil, err
+        }
+        defer file.Close()
 
-	file, err := os.Open(secretsFile)
-	if err != nil {
-		logger.Errorf("Error opening secrets.json: %v", err)
-		return nil, err
-	}
-	defer file.Close()
+        // Initialize with an empty map
+        encoder := json.NewEncoder(file)
+        encoder.SetIndent("", "  ")
+        err = encoder.Encode(secrets)
+        if err != nil {
+            logger.Errorf("Error encoding secrets.json: %v", err)
+            return nil, err
+        }
+        return secrets, nil
+    }
 
-	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&secrets)
-	if err != nil {
-		logger.Errorf("Error decoding secrets.json: %v", err)
-		return nil, err
-	}
-
-	var secretNames []string
-	for name := range secrets {
-		secretNames = append(secretNames, name)
-	}
-
-	return secretNames, nil
+    // Continue with reading the existing file...
 }
 
 // loadSavedWorkflows loads workflows from workflows.json
