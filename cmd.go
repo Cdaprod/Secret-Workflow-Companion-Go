@@ -60,7 +60,7 @@ func initRootCmd(logger *logrus.Logger) *cobra.Command {
             SuccessColor.Println("GitHub token loaded from config.")
             logger.Info("GitHub token loaded from config.")
         }
-    }
+    },
 	}
 
 	// Add subcommands with logger
