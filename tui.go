@@ -335,21 +335,21 @@ func promptMultiLineInput(label string) (string, error) {
 }
 
 // Run the TUI program
-func runTUI(logger *logrus.Logger) {
+func runTUI(logger *logrus.Logger) error {
     // Load reposConfig
     reposConfig, err := LoadReposConfig(logger)
     if err != nil {
         logger.Errorf("Error loading repositories config: %v", err)
         fmt.Println("Failed to load repositories config. Exiting TUI.")
-        os.Exit(1)
+        return err // Return the error
     }
 
     p := tea.NewProgram(newModel(logger, reposConfig))
     if err := p.Start(); err != nil {
         logger.Errorf("Error running TUI: %v", err)
-        fmt.Printf("Error running TUI: %v\n", err)
-        os.Exit(1)
+        return fmt.Errorf("Error running TUI: %v", err) // Return the error
     }
+    return nil // Return nil if no error
 }
 
 // Helper functions

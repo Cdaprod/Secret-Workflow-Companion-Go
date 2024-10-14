@@ -63,35 +63,35 @@ func initConfig() {
 
 
 func main() {
-	// Parse flags to check if TUI should run
-	runTUIFlag := flag.Bool("tui", false, "Run the TUI (terminal user interface)")
-	flag.Parse()
+    // Parse flags to check if TUI should run
+    runTUIFlag := flag.Bool("tui", false, "Run the TUI (terminal user interface)")
+    flag.Parse()
 
-	// Initialize logger
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(logrus.InfoLevel)
+    // Initialize logger
+    logger := logrus.New()
+    logger.SetFormatter(&logrus.TextFormatter{
+        FullTimestamp: true,
+    })
+    logger.SetOutput(os.Stdout)
+    logger.SetLevel(logrus.InfoLevel)
 
-	// Initialize configuration
-	initConfig()
+    // Initialize configuration
+    initConfig()
 
-	// Print ASCII Header
-	printASCIIHeader()
+    // Print ASCII Header
+    printASCIIHeader()
 
-	// Check if TUI should be launched
-	if *runTUIFlag {
-		// Run the TUI if the flag is set
-		if err := runTUI(logger); err != nil {
-			logger.Fatalf("Error running TUI: %v", err)
-		}
-	} else {
-		// Initialize and run the default CLI command
-		rootCmd := initRootCmd(logger)
-		if err := rootCmd.Execute(); err != nil {
-			logger.Fatalf("Error executing command: %v", err)
-		}
-	}
+    // Check if TUI should be launched
+    if *runTUIFlag {
+        // Run the TUI if the flag is set
+        if err := runTUI(logger); err != nil {
+            logger.Fatalf("Error running TUI: %v", err)
+        }
+    } else {
+        // Initialize and run the default CLI command
+        rootCmd := initRootCmd(logger)
+        if err := rootCmd.Execute(); err != nil {
+            logger.Fatalf("Error executing command: %v", err)
+        }
+    }
 }
