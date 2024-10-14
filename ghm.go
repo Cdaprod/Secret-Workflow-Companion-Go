@@ -416,6 +416,7 @@ func (a *AddWorkflowStrategy) Execute() error {
 }
 
 // StoreConfigStrategy defines the parameters for storing a config key-value pair
+// StoreConfigStrategy defines the parameters for storing a config key-value pair
 type StoreConfigStrategy struct {
 	ConfigKey   string
 	ConfigValue string
@@ -425,11 +426,11 @@ type StoreConfigStrategy struct {
 // Execute stores a configuration key-value pair
 func (s *StoreConfigStrategy) Execute() error {
 	viper.Set(s.ConfigKey, s.ConfigValue)
+
 	err := viper.WriteConfig()
 	if err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file doesn't exist, create it
-			err = viper.SafeWriteConfig()
+			err = viper.SafeWriteConfig() // Attempt to create the file if it does not exist
 			if err != nil {
 				s.Logger.Errorf("Error creating config file: %v", err)
 				return err
