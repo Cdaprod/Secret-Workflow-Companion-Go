@@ -2,12 +2,16 @@
 package main
 
 import (
+    "context"
     "fmt"
+    "os"
     "strings"
 
     tea "github.com/charmbracelet/bubbletea"
     "github.com/charmbracelet/lipgloss"
+    "github.com/manifoldco/promptui"
     "github.com/sirupsen/logrus"
+    "github.com/spf13/viper"
 )
 
 // Define TUI tabs
