@@ -369,7 +369,7 @@ func initListReposCmd(logger *logrus.Logger) *cobra.Command {
 }
 
 // loadSavedSecrets loads secrets from secrets.json
-func LoadSecretsConfig(logger *logrus.Logger) (map[string]string, error) {
+func loadSecretsConfig(logger *logrus.Logger) (map[string]string, error) {
     secretsFile := "secrets.json"
     secrets := make(map[string]string)
 
