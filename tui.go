@@ -4,7 +4,7 @@ package main
 import (
     "context"
     "fmt"
-    "os"
+    //"os"
     "strings"
 
     tea "github.com/charmbracelet/bubbletea"
