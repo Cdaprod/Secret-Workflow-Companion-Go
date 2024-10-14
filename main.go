@@ -48,7 +48,6 @@ func printASCIIHeader() {
 }
 
 // GetGitHubToken prompts the user for their GitHub token and saves it in the config
-// GetGitHubToken prompts the user for their GitHub token and saves it in the config
 func GetGitHubToken(logger *logrus.Logger) (string, error) {
     prompt := promptui.Prompt{
         Label: "Enter your GitHub token",
@@ -92,7 +91,7 @@ func initConfig() {
 }
 
 func main() {
-    // Parse flags
+    // Parse flags to check if TUI should run
     runTUIFlag := flag.Bool("tui", false, "Run the TUI (terminal user interface)")
     flag.Parse()
 
@@ -107,22 +106,27 @@ func main() {
     // Initialize configuration
     initConfig()
 
+    // Get GitHub token
+    githubToken, err := GetGitHubToken(logger)
+    if err != nil {
+        logger.Fatalf("Failed to get GitHub token: %v", err)
+    }
+
     // Print ASCII Header
     printASCIIHeader()
 
-    // Get GitHub Token
-    token, err := GetGitHubToken(logger)
-    if err != nil {
-        logger.Fatal("Failed to get GitHub token. Exiting...")
-    }
-
     // Check if TUI should be launched
     if *runTUIFlag {
-        runTUI(logger) // This will utilize the token as needed
+        // Run the TUI if the flag is set
+        runTUI(logger)
     } else {
+        // Initialize and run the default CLI command
         rootCmd := initRootCmd(logger)
         if err := rootCmd.Execute(); err != nil {
             logger.Fatalf("Error executing command: %v", err)
         }
     }
+
+    // Now you can use githubToken where needed
+    logger.Infof("GitHub token obtained: %s", githubToken) // Use the token as needed
 }
