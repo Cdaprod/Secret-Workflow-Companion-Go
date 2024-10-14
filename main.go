@@ -4,6 +4,7 @@ package main
 import (
 	"os"
 	"sync"
+	"flag"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -41,7 +42,7 @@ func printASCIIHeader() {
 ╚────────────────────────────────────────────────────────────────────────────╝
 `
 	once.Do(func() {
-		HeaderColor(header) // Print the header with color
+		HeaderColor.Println(header) // Print the header with color
 	})
 }
 
@@ -83,7 +84,9 @@ func main() {
 	// Check if TUI should be launched
 	if *runTUIFlag {
 		// Run the TUI if the flag is set
-		runTUI(logger)
+		if err := runTUI(logger); err != nil {
+			logger.Fatalf("Error running TUI: %v", err)
+		}
 	} else {
 		// Initialize and run the default CLI command
 		rootCmd := initRootCmd(logger)
