@@ -3,6 +3,7 @@ package main
 
 import (
 	"os"
+	"sync"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -10,31 +11,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-func main() {
-	// Initialize logger
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp: true,
-	})
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(logrus.InfoLevel)
+// Mutex to ensure thread safety in case the program is multithreaded
+var once sync.Once
 
-	// Initialize configuration
-	initConfig()
-
-	// Print ASCII Header
-	printASCIIHeader()
-
-	// Initialize root command
-	rootCmd := initRootCmd(logger)
-
-	// Execute root command
-	if err := rootCmd.Execute(); err != nil {
-		logger.Fatalf("Error executing command: %v", err)
-	}
-}
-
-// printASCIIHeader prints a colorful ASCII header
+// printASCIIHeader prints a colorful ASCII header only once per run
 func printASCIIHeader() {
 	header := `
 ╔────────────────────────────────────────────────────────────────────────────╗
@@ -60,7 +40,9 @@ func printASCIIHeader() {
 │ ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝│
 ╚────────────────────────────────────────────────────────────────────────────╝
 `
-	HeaderColor.Println(header)
+	once.Do(func() {
+		HeaderColor(header) // Print the header with color
+	})
 }
 
 // initConfig initializes the configuration with viper
@@ -74,6 +56,39 @@ func initConfig() {
 			fmt.Println("Config file not found; using defaults")
 		} else {
 			fmt.Printf("Error reading config file: %s\n", err)
+		}
+	}
+}
+
+
+func main() {
+	// Parse flags to check if TUI should run
+	runTUIFlag := flag.Bool("tui", false, "Run the TUI (terminal user interface)")
+	flag.Parse()
+
+	// Initialize logger
+	logger := logrus.New()
+	logger.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(logrus.InfoLevel)
+
+	// Initialize configuration
+	initConfig()
+
+	// Print ASCII Header
+	printASCIIHeader()
+
+	// Check if TUI should be launched
+	if *runTUIFlag {
+		// Run the TUI if the flag is set
+		runTUI(logger)
+	} else {
+		// Initialize and run the default CLI command
+		rootCmd := initRootCmd(logger)
+		if err := rootCmd.Execute(); err != nil {
+			logger.Fatalf("Error executing command: %v", err)
 		}
 	}
 }
